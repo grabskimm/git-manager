@@ -4,6 +4,7 @@ import { api } from "../api";
 import { useApp } from "../state";
 import { DiffViewer } from "../components/DiffViewer";
 import { StatusBadge } from "../components/StatusBadge";
+import { Markdown } from "../components/Markdown";
 import type { DiffResponse, PrDetail } from "../types";
 
 export function PrView() {
@@ -155,7 +156,11 @@ export function PrView() {
               <span className="faint">{new Date(t.created_at).toLocaleString()}</span>
             </div>
             <div className="thread-body">
-              <pre>{t.body}</pre>
+              {t.kind === "status_change" ? (
+                <pre>{t.body}</pre>
+              ) : (
+                <Markdown source={t.body} />
+              )}
             </div>
           </div>
         ))}

@@ -9,7 +9,7 @@ import { PrView } from "./pages/PrView";
 import { Settings } from "./pages/Settings";
 
 export function App() {
-  const { repos, connected, error, reloadRepos } = useApp();
+  const { repos, connected, error, reloadRepos, theme, toggleTheme } = useApp();
   const [scanning, setScanning] = useState(false);
   const navigate = useNavigate();
 
@@ -30,11 +30,20 @@ export function App() {
           <span className="brand" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
             Git<span className="dot">●</span>Manager
           </span>
-          <span
-            className="dotmark"
-            title={connected ? "Engine connected" : "Disconnected"}
-            style={{ color: connected ? "var(--green)" : "var(--red)" }}
-          />
+          <div className="row" style={{ gap: 6 }}>
+            <button
+              className="icon-btn"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? "☀" : "☾"}
+            </button>
+            <span
+              className="dotmark"
+              title={connected ? "Engine connected" : "Disconnected"}
+              style={{ color: connected ? "var(--green)" : "var(--red)" }}
+            />
+          </div>
         </div>
 
         {!connected && (

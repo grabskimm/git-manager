@@ -1,24 +1,52 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api";
 import { useApp } from "../state";
+import { StatusBadge } from "../components/StatusBadge";
+import type { Pr } from "../types";
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
+}
 
 export function Home() {
-  const { repos, sourceDirs } = useApp();
+  const { repos, sourceDirs, agents } = useApp();
+  const [prs, setPrs] = useState<Pr[]>([]);
+
+  useEffect(() => {
+    void api.listPrs().then(setPrs).catch(() => setPrs([]));
+  }, [repos.length]);
+
+  const openPrs = useMemo(
+    () => prs.filter((p) => p.status === "open" || p.status === "conflicted"),
+    [prs],
+  );
+  const runningAgents = useMemo(
+    () => (agents?.sessions ?? []).filter((s) => s.status === "running").length,
+    [agents],
+  );
+  const recent = useMemo(
+    () => [...prs].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 6),
+    [prs],
+  );
+  const repoName = (id: string) => repos.find((r) => r.id === id)?.display_name ?? id.slice(0, 8);
 
   if (sourceDirs.length === 0) {
     return (
       <div className="page">
         <div className="empty">
-          <div className="big">Welcome to GitManager</div>
-          <p className="subtle">
-            A unified, local-first view over your scattered git repositories — with
-            local pull requests and automatic AI review. Everything runs on loopback;
-            your <code>.git</code> is always canonical.
+          <div className="big">Welcome to GitManager 👋</div>
+          <p className="subtle" style={{ maxWidth: 520, margin: "0 auto 18px" }}>
+            A unified, local-first home for your scattered git repositories — browse code,
+            open local pull requests, and get automatic Claude reviews. Everything runs on
+            loopback; your <code>.git</code> stays canonical.
           </p>
-          <p>
-            <Link to="/settings">
-              <button className="primary">Add a source directory →</button>
-            </Link>
-          </p>
+          <Link to="/settings">
+            <button className="primary">Add your first source directory →</button>
+          </Link>
         </div>
       </div>
     );
@@ -26,26 +54,74 @@ export function Home() {
 
   return (
     <div className="page">
-      <h1>Repositories</h1>
-      <p className="subtle">
-        {repos.length} repositor{repos.length === 1 ? "y" : "ies"} discovered across{" "}
-        {sourceDirs.length} source director{sourceDirs.length === 1 ? "y" : "ies"}.
-      </p>
-      {repos.length === 0 ? (
+      <div className="hero">
+        <h1>{greeting()} 👋</h1>
+        <p className="subtle">
+          Here's what's happening across your {repos.length} local repositor
+          {repos.length === 1 ? "y" : "ies"}.
+        </p>
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="num">{repos.length}</div>
+          <div className="label">Repositories</div>
+        </div>
+        <div className="stat-card green">
+          <div className="num">{openPrs.length}</div>
+          <div className="label">Open PRs</div>
+        </div>
+        <div className="stat-card accent">
+          <div className="num">{prs.filter((p) => p.status === "merged").length}</div>
+          <div className="label">Merged</div>
+        </div>
+        <div className="stat-card purple">
+          <div className="num">{runningAgents}</div>
+          <div className="label">Agents running</div>
+        </div>
+      </div>
+
+      <div className="quick-actions">
+        <Link to="/settings">
+          <button>＋ Add source directory</button>
+        </Link>
+        {repos[0] && (
+          <Link to={`/repos/${repos[0].id}`}>
+            <button>Browse {repos[0].display_name}</button>
+          </Link>
+        )}
+      </div>
+
+      <h2>Recent pull requests</h2>
+      {recent.length === 0 ? (
         <div className="banner info">
-          No git repositories found yet. Add more source directories or re-scan.
+          No pull requests yet. Open one from any repository to get an automatic Claude review.
         </div>
       ) : (
         <div className="list">
-          {repos.map((r) => (
-            <Link key={r.id} to={`/repos/${r.id}`} className="list-row">
-              <strong>{r.display_name}</strong>
-              <span className="ref">{r.default_branch ?? "—"}</span>
+          {recent.map((p) => (
+            <Link key={p.id} to={`/prs/${p.id}`} className="list-row">
+              <StatusBadge status={p.status} />
+              <strong>{p.title}</strong>
               <span className="spacer" />
-              <span className="sha">{r.id.slice(0, 16)}</span>
+              <span className="faint">{repoName(p.repo_id)}</span>
+              <span className="ref">{p.head_ref}</span>
             </Link>
           ))}
         </div>
+      )}
+
+      {repos.length > 0 && (
+        <>
+          <h2>Jump to a repository</h2>
+          <div className="row wrap">
+            {repos.slice(0, 12).map((r) => (
+              <Link key={r.id} to={`/repos/${r.id}`}>
+                <button>{r.display_name}</button>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

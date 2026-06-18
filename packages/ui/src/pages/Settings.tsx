@@ -16,7 +16,10 @@ export function Settings() {
     setMsg(null);
     try {
       const res = await api.addSourceDir(path.trim());
-      setMsg(`Added. Found ${res.scanned} repositor${res.scanned === 1 ? "y" : "ies"}.`);
+      const clonedNote = res.cloned ? ` Cloned into ${res.cloned}.` : "";
+      setMsg(
+        `Added. Found ${res.scanned} repositor${res.scanned === 1 ? "y" : "ies"}.${clonedNote}`,
+      );
       setPath("");
       await Promise.all([reloadSourceDirs(), reloadRepos()]);
     } catch (e) {
@@ -37,12 +40,14 @@ export function Settings() {
 
       <h2>Source directories</h2>
       <p className="subtle">
-        GitManager recursively scans these directories for git repositories. Paths are
-        machine-local; repo identity is derived from the root commit (§8).
+        GitManager recursively scans these directories for git repositories. Enter a local
+        path — Linux/macOS (<code>/home/you/projects</code>, <code>~/code</code>) or Windows
+        (<code>C:\Users\you\projects</code>) — or an <code>https</code>/<code>git</code> URL to
+        clone a repo locally (the local <code>.git</code> stays canonical).
       </p>
       <div className="row" style={{ marginBottom: 10 }}>
         <input
-          placeholder="/absolute/path/to/projects"
+          placeholder="~/projects  ·  C:\Users\you\code  ·  https://host/user/repo.git"
           value={path}
           onChange={(e) => setPath(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}

@@ -1,16 +1,18 @@
 import { useMemo } from "react";
 import { html as diffHtml } from "diff2html";
+import { useApp } from "../state";
 
 export function DiffViewer({ diff, stat }: { diff: string; stat?: string }) {
+  const { theme } = useApp();
   const rendered = useMemo(() => {
     if (!diff.trim()) return "";
     return diffHtml(diff, {
       drawFileList: true,
       matching: "lines",
       outputFormat: "line-by-line",
-      colorScheme: "dark" as never,
+      colorScheme: (theme === "light" ? "light" : "dark") as never,
     });
-  }, [diff]);
+  }, [diff, theme]);
 
   if (!diff.trim()) {
     return <div className="banner info">No differences between the selected refs.</div>;

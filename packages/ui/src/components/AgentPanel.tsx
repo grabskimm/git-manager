@@ -30,6 +30,16 @@ export function AgentPanel() {
   const enabled = config?.agent_observe_enabled;
   const controlAvailable = agents?.sources.some((s) => s.capabilities.control) ?? false;
   const sessions = agents?.sessions ?? [];
+  const sourceName = (id: string) =>
+    agents?.sources.find((s) => s.id === id)?.displayName ?? id;
+
+  // Group sessions by provider so multiple tools are clearly distinguished.
+  const groups = new Map<string, typeof sessions>();
+  for (const s of sessions) {
+    const list = groups.get(s.source) ?? [];
+    list.push(s);
+    groups.set(s.source, list);
+  }
 
   return (
     <aside className="agent-panel">
@@ -69,41 +79,53 @@ export function AgentPanel() {
 
           {sessions.length === 0 && (
             <div className="rail-section faint" style={{ fontSize: 13 }}>
-              No Claude Code sessions found in ingested repos. Start a session in one of your
-              repositories and it will appear here.
+              No agent sessions found yet. GitManager observes Claude Code, Codex, Antigravity
+              and other tools that write session transcripts — start one and it will appear
+              here.
             </div>
           )}
 
-          {sessions.map((s) => (
-            <div key={s.id} className="agent-session">
-              <div className="spread">
-                <span className={`badge ${s.status}`}>
-                  <span className="dotmark" />
-                  {s.status}
-                </span>
-                <span className="faint" style={{ fontSize: 11 }}>
-                  {s.source}
-                </span>
-              </div>
-              <div style={{ marginTop: 6 }}>
-                {s.repo_id ? (
-                  <Link to={`/repos/${s.repo_id}`}>{repoName(s.repo_id)}</Link>
-                ) : (
-                  <span className="faint">unbound · {s.cwd}</span>
-                )}
-              </div>
-              <div className="row wrap" style={{ marginTop: 4 }}>
-                {s.branch && <span className="ref">{s.branch}</span>}
-                {s.pr_id && (
-                  <Link to={`/prs/${s.pr_id}`} className="ref">
-                    PR
-                  </Link>
-                )}
-              </div>
-              <div className="faint mono" style={{ fontSize: 10, marginTop: 4 }}>
-                {s.id.slice(0, 8)}
-                {s.last_event_at ? ` · ${new Date(s.last_event_at).toLocaleTimeString()}` : ""}
-              </div>
+          {[...groups.entries()].map(([src, list]) => (
+            <div key={src} className="source-group">
+              <h4>
+                {sourceName(src)} · {list.length}
+              </h4>
+              {list.map((s) => (
+                <div key={s.id} className="agent-session">
+                  <div className="spread">
+                    <span className={`badge ${s.status}`}>
+                      <span className="dotmark" />
+                      {s.status}
+                    </span>
+                    <span className="faint" style={{ fontSize: 11 }}>
+                      {sourceName(s.source)}
+                    </span>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    {s.repo_id ? (
+                      <Link to={`/repos/${s.repo_id}`}>{repoName(s.repo_id)}</Link>
+                    ) : (
+                      <span className="faint" title={s.cwd ?? ""}>
+                        unbound · {(s.cwd ?? "").split("/").pop() || s.cwd}
+                      </span>
+                    )}
+                  </div>
+                  <div className="row wrap" style={{ marginTop: 4 }}>
+                    {s.branch && <span className="ref">{s.branch}</span>}
+                    {s.pr_id && (
+                      <Link to={`/prs/${s.pr_id}`} className="ref">
+                        PR
+                      </Link>
+                    )}
+                  </div>
+                  <div className="faint mono" style={{ fontSize: 10, marginTop: 4 }}>
+                    {s.id.slice(0, 8)}
+                    {s.last_event_at
+                      ? ` · ${new Date(s.last_event_at).toLocaleTimeString()}`
+                      : ""}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </>

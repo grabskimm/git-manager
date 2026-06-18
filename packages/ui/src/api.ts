@@ -4,10 +4,12 @@ import type {
   Branch,
   Commit,
   DiffResponse,
+  FileContent,
   Pr,
   PrDetail,
   Repo,
   SourceDir,
+  TreeResponse,
 } from "./types";
 
 declare global {
@@ -64,7 +66,7 @@ export const api = {
   // source dirs
   listSourceDirs: () => request<SourceDir[]>("/api/source-dirs"),
   addSourceDir: (path: string) =>
-    request<{ dir: SourceDir; scanned: number }>("/api/source-dirs", {
+    request<{ dir: SourceDir; scanned: number; cloned?: string }>("/api/source-dirs", {
       method: "POST",
       body: JSON.stringify({ path }),
     }),
@@ -81,6 +83,14 @@ export const api = {
   diff: (id: string, base: string, head: string) =>
     request<DiffResponse>(
       `/api/repos/${id}/diff?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`,
+    ),
+  tree: (id: string, ref: string, path = "") =>
+    request<TreeResponse>(
+      `/api/repos/${id}/tree?ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`,
+    ),
+  file: (id: string, ref: string, path: string) =>
+    request<FileContent>(
+      `/api/repos/${id}/file?ref=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}`,
     ),
 
   // prs

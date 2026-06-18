@@ -79,7 +79,7 @@ export interface AgentCapabilities {
 
 export interface AgentsResponse {
   enabled: boolean;
-  sources: { id: string; capabilities: AgentCapabilities }[];
+  sources: { id: string; displayName?: string; capabilities: AgentCapabilities }[];
   sessions: AgentSession[];
 }
 
@@ -100,4 +100,26 @@ export interface PrDetail {
   pr: Pr;
   thread: PrThreadEntry[];
   repo: Repo | undefined;
+}
+
+export interface TreeEntry {
+  name: string;
+  path: string;
+  type: "tree" | "blob";
+  size: number | null;
+}
+
+export interface TreeResponse {
+  ref: string;
+  path: string;
+  entries: TreeEntry[];
+}
+
+export interface FileContent {
+  path: string;
+  ref: string;
+  size: number;
+  binary: boolean;
+  truncated: boolean;
+  content: string;
 }

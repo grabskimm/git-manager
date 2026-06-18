@@ -4,7 +4,10 @@ import { api } from "../api";
 import { useApp } from "../state";
 import { DiffViewer } from "../components/DiffViewer";
 import { StatusBadge } from "../components/StatusBadge";
+import { FileBrowser } from "../components/FileBrowser";
 import type { Branch, Commit, DiffResponse, Pr, Repo } from "../types";
+
+type Tab = "files" | "prs" | "commits";
 
 export function RepoView() {
   const { repoId = "" } = useParams();
@@ -15,6 +18,7 @@ export function RepoView() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [prs, setPrs] = useState<Pr[]>([]);
   const [commits, setCommits] = useState<Commit[]>([]);
+  const [tab, setTab] = useState<Tab>("files");
   const [base, setBase] = useState("");
   const [head, setHead] = useState("");
   const [diff, setDiff] = useState<DiffResponse | null>(null);
@@ -35,7 +39,7 @@ export function RepoView() {
       const other = b.find((x) => x.name !== defBranch)?.name ?? defBranch;
       setBase((prev) => prev || defBranch);
       setHead((prev) => prev || other);
-      setCommits(await api.commits(repoId, other || defBranch));
+      setCommits(await api.commits(repoId, defBranch || other));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -46,6 +50,7 @@ export function RepoView() {
     setDiff(null);
     setBase("");
     setHead("");
+    setTab("files");
     void load();
   }, [load]);
 
@@ -100,6 +105,7 @@ export function RepoView() {
 
   const openPrs = prs.filter((p) => p.status === "open" || p.status === "conflicted");
   const closedPrs = prs.filter((p) => p.status === "merged" || p.status === "closed");
+  const defRef = repo.default_branch ?? branches[0]?.name ?? "HEAD";
 
   return (
     <div className="page">
@@ -113,87 +119,113 @@ export function RepoView() {
         <span className="ref">{repo.default_branch ?? "—"}</span>
       </div>
 
+      <div className="tabs">
+        <button className={`tab ${tab === "files" ? "active" : ""}`} onClick={() => setTab("files")}>
+          Files
+        </button>
+        <button className={`tab ${tab === "prs" ? "active" : ""}`} onClick={() => setTab("prs")}>
+          Pull requests {openPrs.length > 0 && <span className="faint">({openPrs.length})</span>}
+        </button>
+        <button className={`tab ${tab === "commits" ? "active" : ""}`} onClick={() => setTab("commits")}>
+          Commits
+        </button>
+      </div>
+
       {error && <div className="banner error">{error}</div>}
 
-      <h2>Compare & open a PR</h2>
-      <div className="card stack">
-        <div className="row wrap">
-          <span className="faint">base</span>
-          <select value={base} onChange={(e) => setBase(e.target.value)} style={{ width: 180 }}>
-            {branches.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          <span className="faint">←</span>
-          <select
-            value={head}
-            onChange={(e) => {
-              setHead(e.target.value);
-              void api.commits(repoId, e.target.value).then(setCommits);
-            }}
-            style={{ width: 180 }}
-          >
-            {branches.map((b) => (
-              <option key={b.name} value={b.name}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-          <button onClick={viewDiff}>View diff</button>
-          <span className="spacer" />
-        </div>
-        <input placeholder="PR title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <textarea
-          placeholder="Description (optional)"
-          rows={2}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-        />
-        <div className="row">
-          <button className="primary" onClick={createPr} disabled={busy}>
-            {busy ? "Opening…" : "Open pull request"}
-          </button>
-          <span className="faint">
-            Opening a PR triggers an automatic Claude review of the diff.
-          </span>
-        </div>
-      </div>
-
-      {diff && <DiffViewer diff={diff.diff} stat={diff.stat} />}
-
-      <h2>Pull requests</h2>
-      {prs.length === 0 ? (
-        <div className="banner info">No pull requests yet for this repo.</div>
-      ) : (
-        <div className="list">
-          {[...openPrs, ...closedPrs].map((p) => (
-            <Link key={p.id} to={`/prs/${p.id}`} className="list-row">
-              <StatusBadge status={p.status} />
-              <strong>{p.title}</strong>
-              <span className="ref">{p.head_ref}</span>
-              <span className="faint">→</span>
-              <span className="ref">{p.base_ref}</span>
-            </Link>
-          ))}
-        </div>
+      {tab === "files" && (
+        <FileBrowser repoId={repoId} branches={branches} defaultRef={defRef} />
       )}
 
-      <h2>Recent commits — {head}</h2>
-      <div className="list">
-        {commits.slice(0, 15).map((c) => (
-          <div key={c.sha} className="list-row" style={{ cursor: "default" }}>
-            <span className="sha">{c.shortSha}</span>
-            <span>{c.subject}</span>
-            <span className="spacer" />
-            <span className="faint" style={{ fontSize: 12 }}>
-              {c.author}
-            </span>
+      {tab === "prs" && (
+        <>
+          <div className="card stack">
+            <div className="row wrap">
+              <span className="faint">base</span>
+              <select value={base} onChange={(e) => setBase(e.target.value)} style={{ width: 180 }}>
+                {branches.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+              <span className="faint">←</span>
+              <select value={head} onChange={(e) => setHead(e.target.value)} style={{ width: 180 }}>
+                {branches.map((b) => (
+                  <option key={b.name} value={b.name}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+              <button onClick={viewDiff}>View diff</button>
+            </div>
+            <input placeholder="PR title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <textarea
+              placeholder="Description (optional)"
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+            <div className="row">
+              <button className="primary" onClick={createPr} disabled={busy}>
+                {busy ? "Opening…" : "Open pull request"}
+              </button>
+              <span className="faint">Opening a PR triggers an automatic Claude review.</span>
+            </div>
           </div>
-        ))}
-        {commits.length === 0 && <div className="list-row faint">No commits.</div>}
-      </div>
+
+          {diff && <DiffViewer diff={diff.diff} stat={diff.stat} />}
+
+          <h2>Pull requests</h2>
+          {prs.length === 0 ? (
+            <div className="banner info">No pull requests yet for this repo.</div>
+          ) : (
+            <div className="list">
+              {[...openPrs, ...closedPrs].map((p) => (
+                <Link key={p.id} to={`/prs/${p.id}`} className="list-row">
+                  <StatusBadge status={p.status} />
+                  <strong>{p.title}</strong>
+                  <span className="ref">{p.head_ref}</span>
+                  <span className="faint">→</span>
+                  <span className="ref">{p.base_ref}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "commits" && (
+        <>
+          <div className="row" style={{ marginBottom: 10 }}>
+            <span className="faint">branch</span>
+            <select
+              defaultValue={defRef}
+              onChange={(e) => void api.commits(repoId, e.target.value).then(setCommits)}
+              style={{ width: 200 }}
+            >
+              {branches.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="list">
+            {commits.map((c) => (
+              <div key={c.sha} className="list-row" style={{ cursor: "default" }}>
+                <span className="sha">{c.shortSha}</span>
+                <span>{c.subject}</span>
+                <span className="spacer" />
+                <span className="faint" style={{ fontSize: 12 }}>
+                  {c.author}
+                </span>
+              </div>
+            ))}
+            {commits.length === 0 && <div className="list-row faint">No commits.</div>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

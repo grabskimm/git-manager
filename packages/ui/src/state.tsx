@@ -12,6 +12,8 @@ import { api } from "./api";
 import { connectWs, type WsEvent } from "./ws";
 import type { AgentsResponse, AppConfig, Repo, SourceDir } from "./types";
 
+export type Theme = "dark" | "light";
+
 interface AppState {
   repos: Repo[];
   sourceDirs: SourceDir[];
@@ -19,6 +21,8 @@ interface AppState {
   agents: AgentsResponse | null;
   connected: boolean;
   error: string | null;
+  theme: Theme;
+  toggleTheme: () => void;
   reloadRepos: () => Promise<void>;
   reloadSourceDirs: () => Promise<void>;
   reloadConfig: () => Promise<void>;
@@ -36,8 +40,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<AgentsResponse | null>(null);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [theme, setTheme] = useState<Theme>(
+    () => (localStorage.getItem("gm_theme") as Theme) || "dark",
+  );
 
   const handlers = useRef(new Set<(e: WsEvent) => void>());
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("gm_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }, []);
 
   const reloadRepos = useCallback(async () => {
     try {
@@ -98,6 +114,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       agents,
       connected,
       error,
+      theme,
+      toggleTheme,
       reloadRepos,
       reloadSourceDirs,
       reloadConfig,
@@ -112,6 +130,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       agents,
       connected,
       error,
+      theme,
+      toggleTheme,
       reloadRepos,
       reloadSourceDirs,
       reloadConfig,
