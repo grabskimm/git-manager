@@ -111,10 +111,10 @@ export const api = {
     request<{ ok: boolean }>(`/api/prs/${id}/review`, { method: "POST" }),
   mergeability: (id: string) =>
     request<{ mergeable: "clean" | "conflict" | "error" }>(`/api/prs/${id}/mergeability`),
-  comment: (id: string, body: string) =>
+  comment: (id: string, body: string, anchor?: { file_path?: string; line?: number }) =>
     request<unknown>(`/api/prs/${id}/comments`, {
       method: "POST",
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ body, ...anchor }),
     }),
 
   // config

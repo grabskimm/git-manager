@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../state";
@@ -15,8 +15,35 @@ export function PrView() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [comment, setComment] = useState("");
+  const [commentFile, setCommentFile] = useState("");
+  const [commentLine, setCommentLine] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const streamRef = useRef("");
+
+  // Changed files in the diff, offered as anchors for inline comments.
+  const changedFiles = useMemo(() => {
+    if (!diff?.diff) return [];
+    const files = new Set<string>();
+    for (const line of diff.diff.split("\n")) {
+      let m = /^\+\+\+ b\/(.+)$/.exec(line);
+      if (m && m[1] !== "/dev/null") files.add(m[1]);
+      m = /^diff --git a\/.+ b\/(.+)$/.exec(line);
+      if (m) files.add(m[1]);
+    }
+    return [...files].sort();
+  }, [diff]);
+
+  const submitComment = useCallback(async () => {
+    const body = comment.trim();
+    if (!body) return;
+    const lineNum = Number(commentLine);
+    await api.comment(prId, body, {
+      file_path: commentFile || undefined,
+      line: commentFile && Number.isFinite(lineNum) && lineNum > 0 ? lineNum : undefined,
+    });
+    setComment("");
+    setCommentLine("");
+  }, [comment, commentFile, commentLine, prId]);
 
   const load = useCallback(async () => {
     try {
@@ -152,6 +179,12 @@ export function PrView() {
             <div className="thread-head">
               <span className={`author-${t.author}`}>{t.author}</span>
               <span className="faint">{t.kind.replace("_", " ")}</span>
+              {t.file_path && (
+                <span className="ref mono" title="Inline comment">
+                  📄 {t.file_path}
+                  {t.line ? `:${t.line}` : ""}
+                </span>
+              )}
               <span className="spacer" />
               <span className="faint">{new Date(t.created_at).toLocaleString()}</span>
             </div>
@@ -179,31 +212,56 @@ export function PrView() {
         )}
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="card stack" style={{ marginTop: 12 }}>
+        <div className="row wrap">
+          <span className="faint">on</span>
+          <select
+            value={commentFile}
+            onChange={(e) => setCommentFile(e.target.value)}
+            style={{ width: 260 }}
+          >
+            <option value="">the whole PR</option>
+            {changedFiles.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+          {commentFile && (
+            <input
+              type="number"
+              min={1}
+              placeholder="line"
+              value={commentLine}
+              onChange={(e) => setCommentLine(e.target.value)}
+              style={{ width: 90 }}
+            />
+          )}
+        </div>
         <input
-          placeholder="Add a comment"
+          placeholder={commentFile ? `Comment on ${commentFile}` : "Add a comment"}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && comment.trim()) {
-              void act("comment", async () => {
-                await api.comment(pr.id, comment.trim());
-                setComment("");
-              });
+              void act("comment", submitComment);
             }
           }}
         />
-        <button
-          disabled={!comment.trim() || busy !== null}
-          onClick={() =>
-            act("comment", async () => {
-              await api.comment(pr.id, comment.trim());
-              setComment("");
-            })
-          }
-        >
-          Comment
-        </button>
+        <div className="row">
+          <button
+            className="primary"
+            disabled={!comment.trim() || busy !== null}
+            onClick={() => act("comment", submitComment)}
+          >
+            Comment
+          </button>
+          {changedFiles.length > 0 && (
+            <span className="faint">
+              Anchor a note to a changed file (and optional line) for inline review.
+            </span>
+          )}
+        </div>
       </div>
 
       {diff && (

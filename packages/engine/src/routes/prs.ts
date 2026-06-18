@@ -209,29 +209,37 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
     return updated;
   });
 
-  app.post<{ Params: { id: string }; Body: { body?: string } }>(
-    "/api/prs/:id/comments",
-    async (req, reply) => {
-      const pr = getPr(ctx.db, req.params.id);
-      if (!pr) {
-        reply.code(404);
-        return { error: "pr_not_found" };
-      }
-      const body = req.body?.body?.trim();
-      if (!body) {
-        reply.code(400);
-        return { error: "body_required" };
-      }
-      const entry = addThreadEntry(ctx.db, {
-        pr_id: pr.id,
-        author: "user",
-        kind: "comment",
-        body,
-      });
-      ctx.hub.broadcast("pr.updated", { prId: pr.id });
-      return entry;
-    },
-  );
+  app.post<{
+    Params: { id: string };
+    Body: { body?: string; file_path?: string; line?: number };
+  }>("/api/prs/:id/comments", async (req, reply) => {
+    const pr = getPr(ctx.db, req.params.id);
+    if (!pr) {
+      reply.code(404);
+      return { error: "pr_not_found" };
+    }
+    const body = req.body?.body?.trim();
+    if (!body) {
+      reply.code(400);
+      return { error: "body_required" };
+    }
+    const filePath = req.body?.file_path?.trim() || null;
+    const rawLine = req.body?.line;
+    const line =
+      typeof rawLine === "number" && Number.isFinite(rawLine) && rawLine > 0
+        ? Math.floor(rawLine)
+        : null;
+    const entry = addThreadEntry(ctx.db, {
+      pr_id: pr.id,
+      author: "user",
+      kind: "comment",
+      body,
+      file_path: filePath,
+      line,
+    });
+    ctx.hub.broadcast("pr.updated", { prId: pr.id });
+    return entry;
+  });
 
   app.post<{ Params: { id: string } }>("/api/prs/:id/review", async (req, reply) => {
     const pr = getPr(ctx.db, req.params.id);

@@ -106,6 +106,18 @@ describe("full PR lifecycle (§9) over HTTP", () => {
     const review = detail!.thread.find((t) => t.kind === "review")!;
     expect(review.body.toLowerCase()).toContain("skip");
 
+    // Inline (file-anchored) comment persists its file/line anchor.
+    await call("POST", `/api/prs/${prId}/comments`, {
+      body: "nit: rename this",
+      file_path: "b.txt",
+      line: 3,
+    });
+    const withComment = await call<PrDetail>("GET", `/api/prs/${prId}`);
+    const inline = withComment.body.thread.find((t) => t.file_path === "b.txt");
+    expect(inline).toBeTruthy();
+    expect(inline!.line).toBe(3);
+    expect(inline!.author).toBe("user");
+
     // Merge → merged with a recorded SHA.
     const merged = await call<Pr>("POST", `/api/prs/${prId}/merge`);
     expect(merged.status).toBe(200);
