@@ -8,25 +8,33 @@ interface Msg {
   content: string;
 }
 
-/**
- * A chat panel (below the agents section) that talks to the user's authenticated
- * Claude about all repositories in the source list. Responses stream over the
- * WebSocket; context is cross-repo metadata supplied by the engine.
- */
-export function ChatPanel() {
+interface Props {
+  minimized: boolean;
+  onToggleMinimize: () => void;
+}
+
+export function ChatPanel({ minimized, onToggleMinimize }: Props) {
   const { onWs, repos } = useApp();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hasActivity, setHasActivity] = useState(false);
   const activeId = useRef<string | null>(null);
   const streamRef = useRef("");
   const bodyRef = useRef<HTMLDivElement>(null);
+  const minimizedRef = useRef(minimized);
+
+  useEffect(() => {
+    minimizedRef.current = minimized;
+    if (!minimized) setHasActivity(false);
+  }, [minimized]);
 
   useEffect(() => {
     return onWs((e) => {
       const p = e.payload as { id?: string; token?: string; body?: string; reason?: string };
       if (!p || p.id !== activeId.current) return;
+
       if (e.type === "chat.token") {
         streamRef.current += p.token ?? "";
         setStreaming(streamRef.current);
@@ -36,6 +44,7 @@ export function ChatPanel() {
         streamRef.current = "";
         activeId.current = null;
         setBusy(false);
+        if (minimizedRef.current) setHasActivity(true);
       } else if (e.type === "chat.skipped") {
         setMessages((m) => [
           ...m,
@@ -45,6 +54,7 @@ export function ChatPanel() {
         streamRef.current = "";
         activeId.current = null;
         setBusy(false);
+        if (minimizedRef.current) setHasActivity(true);
       }
     });
   }, [onWs]);
@@ -73,19 +83,33 @@ export function ChatPanel() {
   };
 
   return (
-    <div className="chat-panel">
+    <div className={`chat-panel ${minimized ? "chat-minimized" : ""}`}>
       <div className="chat-head">
-        <span className="brand">Repo chat</span>
-        <span className="faint" style={{ fontSize: 11 }}>
-          {repos.length} repo{repos.length === 1 ? "" : "s"} in context
-        </span>
+        <div className="row" style={{ gap: 6 }}>
+          <span className="chat-title">Repo chat</span>
+          {hasActivity && minimized && <span className="chat-unread-dot" title="New response" />}
+        </div>
+        <div className="row" style={{ gap: 4 }}>
+          <span className="faint" style={{ fontSize: 11 }}>
+            {repos.length} repo{repos.length === 1 ? "" : "s"}
+          </span>
+          <button
+            className="icon-btn"
+            onClick={onToggleMinimize}
+            title={minimized ? "Expand chat" : "Minimize chat"}
+            style={{ fontSize: 12, padding: "3px 7px" }}
+          >
+            {minimized ? "▲" : "▼"}
+          </button>
+        </div>
       </div>
 
+      {/* Body and input stay mounted; hidden via CSS when minimized */}
       <div className="chat-body" ref={bodyRef}>
         {messages.length === 0 && streaming === null && (
-          <div className="faint" style={{ fontSize: 12, padding: "8px 4px" }}>
-            Ask about any of your repositories — e.g. “which repos changed most recently?” or
-            “where is auth handled across these projects?”. Context is read-only metadata
+          <div className="chat-hint">
+            Ask about any of your repositories — e.g. "which repos changed most recently?" or
+            "where is auth handled across these projects?". Context is read-only metadata
             across all repos in your source list.
           </div>
         )}
@@ -102,7 +126,7 @@ export function ChatPanel() {
         {streaming !== null && (
           <div className="chat-msg assistant">
             <div className="chat-role">claude</div>
-            <pre className="cursor-blink" style={{ whiteSpace: "pre-wrap", margin: 0 }}>
+            <pre className="cursor-blink" style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 13 }}>
               {streaming}
             </pre>
           </div>

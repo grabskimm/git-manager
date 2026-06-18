@@ -3,10 +3,26 @@ import { Link } from "react-router-dom";
 import { useApp } from "../state";
 import { api } from "../api";
 
+function relTime(ts: string | null | undefined): string {
+  if (!ts) return "";
+  const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+  if (s < 5) return "just now";
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+const PROVIDER_ICON: Record<string, string> = {
+  "claude-code": "◆",
+  codex: "⬡",
+  antigravity: "◈",
+  "gemini-cli": "✦",
+};
+
 export function AgentPanel() {
   const { agents, config, repos, reloadAgents, setConfig } = useApp();
 
-  // Poll as a fallback in case the file-watch stream misses an event.
   useEffect(() => {
     if (!config?.agent_observe_enabled) return;
     const t = setInterval(() => void reloadAgents(), 5000);
@@ -14,15 +30,14 @@ export function AgentPanel() {
   }, [config?.agent_observe_enabled, reloadAgents]);
 
   const repoName = (id: string | null) =>
-    id ? repos.find((r) => r.id === id)?.display_name ?? id.slice(0, 12) : null;
+    id ? (repos.find((r) => r.id === id)?.display_name ?? id.slice(0, 12)) : null;
 
   const enabled = config?.agent_observe_enabled;
-  const controlAvailable = agents?.sources.some((s) => s.capabilities.control) ?? false;
   const sessions = agents?.sessions ?? [];
-  const sourceName = (id: string) =>
-    agents?.sources.find((s) => s.id === id)?.displayName ?? id;
+  const sourceName = (id: string) => agents?.sources.find((s) => s.id === id)?.displayName ?? id;
 
-  // Group sessions by provider so multiple tools are clearly distinguished.
+  const running = sessions.filter((s) => s.status === "running").length;
+
   const groups = new Map<string, typeof sessions>();
   for (const s of sessions) {
     const list = groups.get(s.source) ?? [];
@@ -32,91 +47,111 @@ export function AgentPanel() {
 
   return (
     <div className="agents-section">
-      <div className="rail-header">
-        <span className="brand">Agents</span>
-        <span className="faint" style={{ fontSize: 11 }}>observe-only</span>
+      {/* ---- header ---- */}
+      <div className="agents-header">
+        <div className="row" style={{ gap: 8 }}>
+          <span className="agents-title">Agents</span>
+          {enabled && sessions.length > 0 && (
+            <span className={`agents-count-pill ${running > 0 ? "running" : ""}`}>
+              {running > 0 ? `${running} running` : `${sessions.length} idle`}
+            </span>
+          )}
+        </div>
+        {enabled && (
+          <button
+            className="icon-btn"
+            style={{ fontSize: 13, padding: "3px 7px" }}
+            onClick={() => void api.refreshAgents().then(reloadAgents)}
+            title="Refresh agent sessions"
+          >
+            ↻
+          </button>
+        )}
       </div>
 
-      {!enabled ? (
-        <div className="rail-section">
-          <div className="banner info">
-            The agent observe panel is opt-in. When enabled, GitManager reads Claude Code
-            session transcripts <strong>read-only</strong> and binds each to its repo,
-            branch, and matching PR.
+      {/* ---- not enabled ---- */}
+      {!enabled && (
+        <div className="agents-empty-state">
+          <div className="agents-empty-icon">🤖</div>
+          <div className="agents-empty-title">Observe AI agents</div>
+          <div className="agents-empty-sub">
+            GitManager reads Claude Code, Codex, and other tools' session transcripts
+            read-only and links each to its repo, branch, and PR.
           </div>
-          <button className="primary" onClick={() => setConfig({ agent_observe_enabled: true })}>
+          <button
+            className="primary"
+            style={{ marginTop: 14, width: "100%" }}
+            onClick={() => setConfig({ agent_observe_enabled: true })}
+          >
             Enable observation
           </button>
         </div>
-      ) : (
-        <>
-          <div className="rail-section">
-            <div className="spread">
-              <span className="faint" style={{ fontSize: 12 }}>
-                {sessions.length} session{sessions.length === 1 ? "" : "s"} · observe-only
-              </span>
-              <button onClick={() => void api.refreshAgents().then(reloadAgents)}>↻</button>
-            </div>
-            {!controlAvailable && (
-              <div className="faint" style={{ fontSize: 11, margin: "6px 0" }}>
-                Control (start/stop) is unavailable for these sources.
-              </div>
-            )}
+      )}
+
+      {/* ---- enabled, no sessions ---- */}
+      {enabled && sessions.length === 0 && (
+        <div className="agents-empty-state compact">
+          <div className="agents-empty-icon" style={{ fontSize: 22 }}>⌛</div>
+          <div className="agents-empty-sub">
+            No sessions yet. Start Claude Code, Codex, or another supported agent and it
+            will appear here.
           </div>
+        </div>
+      )}
 
-          {sessions.length === 0 && (
-            <div className="rail-section faint" style={{ fontSize: 13 }}>
-              No agent sessions found yet. GitManager observes Claude Code, Codex, Antigravity
-              and other tools that write session transcripts — start one and it will appear
-              here.
+      {/* ---- session groups ---- */}
+      {enabled &&
+        [...groups.entries()].map(([src, list]) => (
+          <div key={src} className="agent-group">
+            <div className="agent-group-header">
+              <span className="agent-provider-icon">
+                {PROVIDER_ICON[src] ?? "◉"}
+              </span>
+              <span className="agent-provider-name">{sourceName(src)}</span>
+              <span className="agent-provider-count">{list.length}</span>
             </div>
-          )}
 
-          {[...groups.entries()].map(([src, list]) => (
-            <div key={src} className="source-group">
-              <h4>
-                {sourceName(src)} · {list.length}
-              </h4>
-              {list.map((s) => (
-                <div key={s.id} className="agent-session">
-                  <div className="spread">
-                    <span className={`badge ${s.status}`}>
-                      <span className="dotmark" />
-                      {s.status}
-                    </span>
-                    <span className="faint" style={{ fontSize: 11 }}>
-                      {sourceName(s.source)}
-                    </span>
+            {list.map((s) => (
+              <div key={s.id} className={`session-card ${s.status}`}>
+                {/* status stripe is a ::before pseudo-element via CSS */}
+
+                <div className="session-row">
+                  {/* Left: repo + branch + PR */}
+                  <div className="session-info">
+                    <div className="session-repo-name">
+                      {s.repo_id ? (
+                        <Link to={`/repos/${s.repo_id}`}>{repoName(s.repo_id)}</Link>
+                      ) : (
+                        <span className="faint" title={s.cwd ?? ""}>
+                          {(s.cwd ?? "").split("/").pop() || "unbound"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="session-refs">
+                      {s.branch && <span className="ref-sm">{s.branch}</span>}
+                      {s.pr_id && (
+                        <Link to={`/prs/${s.pr_id}`} className="ref-sm ref-sm--pr">
+                          PR
+                        </Link>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ marginTop: 6 }}>
-                    {s.repo_id ? (
-                      <Link to={`/repos/${s.repo_id}`}>{repoName(s.repo_id)}</Link>
-                    ) : (
-                      <span className="faint" title={s.cwd ?? ""}>
-                        unbound · {(s.cwd ?? "").split("/").pop() || s.cwd}
-                      </span>
-                    )}
-                  </div>
-                  <div className="row wrap" style={{ marginTop: 4 }}>
-                    {s.branch && <span className="ref">{s.branch}</span>}
-                    {s.pr_id && (
-                      <Link to={`/prs/${s.pr_id}`} className="ref">
-                        PR
-                      </Link>
-                    )}
-                  </div>
-                  <div className="faint mono" style={{ fontSize: 10, marginTop: 4 }}>
-                    {s.id.slice(0, 8)}
-                    {s.last_event_at
-                      ? ` · ${new Date(s.last_event_at).toLocaleTimeString()}`
-                      : ""}
+
+                  {/* Right: status dot + time */}
+                  <div className="session-right">
+                    <div className={`session-status-dot ${s.status}`} />
+                    <div className="session-time">{relTime(s.last_event_at)}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ))}
-        </>
-      )}
+
+                <div className="session-footer">
+                  <span className="session-id">{s.id.slice(0, 8)}</span>
+                  <span className={`session-status-label ${s.status}`}>{s.status}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

@@ -2,31 +2,49 @@ import { useState } from "react";
 import { AgentPanel } from "./AgentPanel";
 import { ChatPanel } from "./ChatPanel";
 
-/** Right column: the agents observe section on top, repo chat below. */
+/**
+ * Right column: agents on top, repo chat below.
+ *
+ * Both panels are ALWAYS mounted so chat state (history, streaming tokens)
+ * survives a sidebar collapse. Collapse / chat-minimize are CSS-only toggles.
+ */
 export function RightSidebar() {
   const [collapsed, setCollapsed] = useState(false);
-
-  if (collapsed) {
-    return (
-      <aside className="right-sidebar collapsed">
-        <button className="collapse-btn" onClick={() => setCollapsed(false)} title="Agents & chat">
-          🤖
-        </button>
-      </aside>
-    );
-  }
+  const [chatMinimized, setChatMinimized] = useState(false);
 
   return (
-    <aside className="right-sidebar">
-      <div className="rs-collapse">
-        <button className="icon-btn" onClick={() => setCollapsed(true)} title="Collapse">
-          →
-        </button>
+    <aside className={`right-sidebar ${collapsed ? "collapsed" : ""}`}>
+      {/* Expand handle — only visible when collapsed */}
+      <button
+        className="rs-expand-btn"
+        onClick={() => setCollapsed(false)}
+        title="Open agents & chat"
+      >
+        🤖
+      </button>
+
+      {/* Body always mounted; hidden by CSS when collapsed */}
+      <div className="rs-body">
+        <div className="rs-topbar">
+          <button
+            className="icon-btn"
+            onClick={() => setCollapsed(true)}
+            title="Collapse sidebar"
+            style={{ fontSize: 13 }}
+          >
+            ›
+          </button>
+        </div>
+
+        <div className="agents-scroll">
+          <AgentPanel />
+        </div>
+
+        <ChatPanel
+          minimized={chatMinimized}
+          onToggleMinimize={() => setChatMinimized((m) => !m)}
+        />
       </div>
-      <div className="agents-scroll">
-        <AgentPanel />
-      </div>
-      <ChatPanel />
     </aside>
   );
 }
