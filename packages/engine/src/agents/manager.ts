@@ -16,6 +16,7 @@ import type { AgentSessionRow } from "../types.js";
 import type { WsHub } from "../ws.js";
 import { ClaudeCodeSource } from "./claudeCode.js";
 import { GenericTranscriptSource, defaultGenericProviders } from "./genericSource.js";
+import { AntigravitySource } from "./antigravity.js";
 import type { AgentSession, AgentSource } from "./source.js";
 
 /**
@@ -33,10 +34,12 @@ export class AgentManager {
     private db: DB,
     private hub: WsHub,
   ) {
-    // Claude Code (with hook support) plus best-effort generic providers
-    // (Codex, Antigravity, …). Inactive providers contribute nothing.
+    // Claude Code (with hook support), the dedicated Antigravity source (reads
+    // its SQLite state store), plus best-effort generic JSON/JSONL providers
+    // (Codex, Gemini CLI, …). Inactive providers contribute nothing.
     this.sources = [
       new ClaudeCodeSource(),
+      new AntigravitySource(),
       ...defaultGenericProviders().map((p) => new GenericTranscriptSource(p)),
     ];
   }

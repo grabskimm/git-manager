@@ -106,57 +106,6 @@ export class GenericTranscriptSource implements AgentSource {
 }
 
 const home = os.homedir();
-const xdg = process.env.XDG_CONFIG_HOME || path.join(home, ".config");
-const macApp = path.join(home, "Library", "Application Support");
-// Electron/VS Code-fork apps store their userData here on Windows.
-const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
-const localAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
-
-/**
- * When the engine runs under WSL, Windows app data is reachable via the mounted
- * drives (/mnt/<drive>/Users/<user>/AppData/...). Enumerate those profiles so a
- * Windows-installed agent is still observable from a Linux engine.
- */
-function wslWindowsDirs(name: string): string[] {
-  if (process.platform !== "linux") return [];
-  const out: string[] = [];
-  let drives: string[];
-  try {
-    drives = fs.readdirSync("/mnt");
-  } catch {
-    return out;
-  }
-  for (const drive of drives) {
-    const usersDir = path.join("/mnt", drive, "Users");
-    let users: string[];
-    try {
-      users = fs.readdirSync(usersDir);
-    } catch {
-      continue;
-    }
-    for (const u of users) {
-      out.push(
-        path.join(usersDir, u, "AppData", "Roaming", name),
-        path.join(usersDir, u, "AppData", "Local", name),
-      );
-    }
-  }
-  return out;
-}
-
-/** Candidate userData dirs for an Electron/VS Code-fork app, all platforms. */
-function electronAppDirs(name: string): string[] {
-  return [
-    path.join(home, `.${name.toLowerCase()}`),
-    path.join(xdg, name),
-    path.join(xdg, name.toLowerCase()),
-    path.join(macApp, name),
-    path.join(appData, name),
-    path.join(localAppData, name),
-    path.join(localAppData, name, "User"),
-    ...wslWindowsDirs(name),
-  ];
-}
 
 /**
  * Best-effort provider registry. Locations are detected and fail soft — if a
@@ -171,12 +120,8 @@ export function defaultGenericProviders(): ProviderConfig[] {
       baseDirs: [path.join(home, ".codex", "sessions"), path.join(home, ".codex")],
       filePattern: /\.jsonl$/,
     },
-    {
-      id: "antigravity",
-      displayName: "Antigravity",
-      baseDirs: electronAppDirs("Antigravity"),
-      filePattern: /\.(jsonl|json)$/,
-    },
+    // Antigravity is handled by the dedicated AntigravitySource (SQLite), not
+    // this JSON/JSONL generic reader.
     {
       id: "gemini-cli",
       displayName: "Gemini CLI",
