@@ -72,6 +72,7 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
   agent_observe_enabled: false,
   chat_enabled: false,
   terminal_enabled: false,
+  implement_enabled: false,
 };
 
 export function openDb(file: string = dbPath()): DB {

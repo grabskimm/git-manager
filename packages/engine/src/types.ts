@@ -66,4 +66,5 @@ export interface AppConfig {
   agent_observe_enabled: boolean;
   chat_enabled: boolean;
   terminal_enabled: boolean;
+  implement_enabled: boolean;
 }

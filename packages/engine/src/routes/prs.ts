@@ -13,6 +13,7 @@ import { branchExists, revParse } from "../git.js";
 import { attemptMerge, dryRunMerge } from "../merge.js";
 import { getConfig } from "../config.js";
 import { runReview, runReviewReply } from "../review.js";
+import { runImplement } from "../implement.js";
 
 export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get<{ Querystring: { repoId?: string } }>("/api/prs", async (req) =>
@@ -264,6 +265,41 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
       addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
       ctx.hub.broadcast("pr.updated", { prId: pr.id });
       void runReviewReply(ctx.db, ctx.hub, repo, pr).then(() => {
+        ctx.hub.broadcast("pr.updated", { prId: pr.id });
+      });
+      return { ok: true, started: true };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { message?: string } }>(
+    "/api/prs/:id/implement",
+    async (req, reply) => {
+      if (!getConfig(ctx.db).implement_enabled) {
+        reply.code(403);
+        return { error: "implement_disabled" };
+      }
+      const pr = getPr(ctx.db, req.params.id);
+      if (!pr) {
+        reply.code(404);
+        return { error: "pr_not_found" };
+      }
+      if (pr.status === "merged" || pr.status === "closed") {
+        reply.code(409);
+        return { error: "pr_not_open", status: pr.status };
+      }
+      const repo = getRepo(ctx.db, pr.repo_id);
+      if (!repo) {
+        reply.code(404);
+        return { error: "repo_not_found" };
+      }
+      const message = req.body?.message?.trim();
+      if (!message) {
+        reply.code(400);
+        return { error: "message_required" };
+      }
+      addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
+      ctx.hub.broadcast("pr.updated", { prId: pr.id });
+      void runImplement(ctx.db, ctx.hub, repo, pr).then(() => {
         ctx.hub.broadcast("pr.updated", { prId: pr.id });
       });
       return { ok: true, started: true };

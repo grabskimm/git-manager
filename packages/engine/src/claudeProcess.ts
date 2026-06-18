@@ -47,19 +47,56 @@ export type StreamResult =
  * `onToken`. Works with a plain login and stays compatible with environments
  * that inject `--include-partial-messages`. Never throws — returns a skip
  * result on any failure so callers can degrade gracefully.
+ *
+ * Runs read-only in an isolated internal directory (no repo/file access), so
+ * review and chat subprocesses can't mutate anything or pollute the agent panel.
  */
 export function runClaudeStreaming(opts: {
   prompt: string;
   onToken: (token: string) => void;
   model?: string;
 }): Promise<StreamResult> {
+  const args = ["--print", "--verbose", "--output-format", "stream-json"];
+  if (opts.model) args.push("--model", opts.model);
+  return runClaudeCore({ cwd: internalCwd(), args, prompt: opts.prompt, onToken: opts.onToken });
+}
+
+/**
+ * Run the `claude` CLI **inside a repository working directory** with file-edit
+ * permissions, so it can actually implement changes. Uses
+ * `--permission-mode acceptEdits` (file writes auto-approved; it cannot prompt
+ * in non-interactive print mode, so arbitrary unapproved bash is simply denied).
+ * Intended to be pointed at a throwaway worktree by the caller.
+ */
+export function runClaudeAgent(opts: {
+  cwd: string;
+  prompt: string;
+  onToken: (token: string) => void;
+  model?: string;
+}): Promise<StreamResult> {
+  const args = [
+    "--print",
+    "--verbose",
+    "--output-format",
+    "stream-json",
+    "--permission-mode",
+    "acceptEdits",
+  ];
+  if (opts.model) args.push("--model", opts.model);
+  return runClaudeCore({ cwd: opts.cwd, args, prompt: opts.prompt, onToken: opts.onToken });
+}
+
+function runClaudeCore(opts: {
+  cwd: string;
+  args: string[];
+  prompt: string;
+  onToken: (token: string) => void;
+}): Promise<StreamResult> {
   return new Promise((resolve) => {
-    const args = ["--print", "--verbose", "--output-format", "stream-json"];
-    if (opts.model) args.push("--model", opts.model);
     let child;
     try {
-      child = spawn(claudeBin(), args, {
-        cwd: internalCwd(),
+      child = spawn(claudeBin(), opts.args, {
+        cwd: opts.cwd,
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (err) {

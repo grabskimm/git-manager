@@ -114,6 +114,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ message }),
     }),
+  implementReview: (id: string, message: string) =>
+    request<{ ok: boolean; started: boolean }>(`/api/prs/${id}/implement`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
   mergeability: (id: string) =>
     request<{ mergeable: "clean" | "conflict" | "error" }>(`/api/prs/${id}/mergeability`),
   comment: (id: string, body: string, anchor?: { file_path?: string; line?: number }) =>

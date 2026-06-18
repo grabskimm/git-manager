@@ -193,6 +193,19 @@ no extra config):
 - If `claude` is absent, unauthenticated, or errors, the review is marked **skipped** with
   guidance — the PR is never hard-failed.
 
+**Reply to Claude.** Once a review exists, a *Reply to Claude* box appears on the PR. Your
+reply is posted to the thread and Claude answers with the **diff and full conversation** as
+context (read-only), so you can push back, ask for clarification, or request a fix. Review,
+reply, and chat all run read-only in an isolated directory — no file access.
+
+**Implement with Claude (opt-in).** Enable `implement_enabled` in Settings to add an
+**Implement** action on PRs. Claude then runs **with edit permissions inside a throwaway
+detached worktree** checked out at the head commit, edits the files, and the result is
+committed and the head branch advanced with a compare-and-swap `update-ref` — exactly like the
+merge engine, so **your working tree is never touched**. The new commit shows up in the PR
+diff immediately. This is the one place GitManager lets `claude` write to your repo, so it is
+off by default.
+
 ## Agent observe panel (opt-in)
 
 Enable it in Settings (or from the panel). GitManager then reads agent session
@@ -224,6 +237,7 @@ Stored in SQLite (`config` table), editable in Settings:
 | `agent_observe_enabled` | `false` | Enable the read-only agent observe panel |
 | `chat_enabled` | `false` | Enable the repo chat panel in the right sidebar |
 | `terminal_enabled` | `false` | Enable the built-in terminal tab on each repo view |
+| `implement_enabled` | `false` | Allow Claude to implement PR changes (writes files, commits to the head branch) |
 
 Environment overrides: `GITMANAGER_PORT` (default `4317`), `GITMANAGER_HOME` (default
 `~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`).

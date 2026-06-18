@@ -142,6 +142,22 @@ export function Settings() {
               </div>
             </span>
           </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={config.implement_enabled}
+              onChange={(e) => setConfig({ implement_enabled: e.target.checked })}
+            />
+            <span>
+              Allow Claude to implement PR changes (opt-in)
+              <div className="faint" style={{ fontSize: 12 }}>
+                Adds an <strong>Implement</strong> action on PR reviews. Claude edits files in a
+                throwaway worktree and commits to the head branch — your checkout is untouched.
+                This lets <code>claude</code> <strong>write files in your repo</strong> with your
+                credentials; leave off unless you want that.
+              </div>
+            </span>
+          </label>
         </div>
       )}
 

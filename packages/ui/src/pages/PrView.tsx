@@ -9,7 +9,7 @@ import type { DiffResponse, PrDetail } from "../types";
 
 export function PrView() {
   const { prId = "" } = useParams();
-  const { onWs } = useApp();
+  const { onWs, config } = useApp();
   const [detail, setDetail] = useState<PrDetail | null>(null);
   const [diff, setDiff] = useState<DiffResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +18,7 @@ export function PrView() {
   const [commentFile, setCommentFile] = useState("");
   const [commentLine, setCommentLine] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
-  const [streamKind, setStreamKind] = useState<"review" | "reply">("review");
+  const [streamKind, setStreamKind] = useState<"review" | "reply" | "implement">("review");
   const [reply, setReply] = useState("");
   const streamRef = useRef("");
 
@@ -55,6 +55,19 @@ export function PrView() {
     setError(null);
     try {
       await api.replyToReview(prId, message);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [reply, prId]);
+
+  const sendImplement = useCallback(async () => {
+    const message = reply.trim();
+    if (!message) return;
+    setReply("");
+    setStreamKind("implement");
+    setError(null);
+    try {
+      await api.implementReview(prId, message);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -223,7 +236,13 @@ export function PrView() {
         {streaming !== null && (
           <div className="streaming">
             <div className="author-claude" style={{ marginBottom: 6 }}>
-              claude · {streamKind === "reply" ? "replying" : "reviewing"}…
+              claude ·{" "}
+              {streamKind === "reply"
+                ? "replying"
+                : streamKind === "implement"
+                  ? "implementing"
+                  : "reviewing"}
+              …
             </div>
             <pre className="cursor-blink">{streaming}</pre>
           </div>
@@ -255,7 +274,7 @@ export function PrView() {
               }
             }}
           />
-          <div className="row">
+          <div className="row wrap">
             <button
               className="primary"
               disabled={!reply.trim() || streaming !== null}
@@ -263,6 +282,24 @@ export function PrView() {
             >
               {streaming !== null && streamKind === "reply" ? "Claude is replying…" : "Send reply"}
             </button>
+            {config?.implement_enabled && pr.status !== "merged" && pr.status !== "closed" && (
+              <button
+                className="accent"
+                disabled={!reply.trim() || streaming !== null}
+                onClick={() => void sendImplement()}
+                title="Claude edits files in a throwaway worktree and commits to the head branch"
+              >
+                {streaming !== null && streamKind === "implement"
+                  ? "Claude is implementing…"
+                  : "Implement"}
+              </button>
+            )}
+            {config?.implement_enabled && (
+              <span className="faint" style={{ fontSize: 12 }}>
+                “Implement” lets Claude edit files and commit to{" "}
+                <span className="mono">{pr.head_ref}</span>.
+              </span>
+            )}
           </div>
         </div>
       )}
