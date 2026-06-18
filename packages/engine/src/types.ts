@@ -64,4 +64,6 @@ export interface AppConfig {
   delete_head_on_merge: boolean;
   review_on_pr_open: boolean;
   agent_observe_enabled: boolean;
+  chat_enabled: boolean;
+  terminal_enabled: boolean;
 }
