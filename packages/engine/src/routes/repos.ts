@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
 import { getRepo, listRepos } from "../store.js";
-import { diffRange, diffStat, listBranches, log } from "../git.js";
+import { diffRange, diffStat, listBranches, listTree, log, readFile } from "../git.js";
 
 export function registerRepoRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get("/api/repos", async () => listRepos(ctx.db));
@@ -58,5 +58,42 @@ export function registerRepoRoutes(app: FastifyInstance, ctx: AppContext): void 
     const diff = await diffRange(repo.abs_path, base, head);
     const stat = await diffStat(repo.abs_path, base, head);
     return { base, head, diff, stat };
+  });
+
+  app.get<{
+    Params: { id: string };
+    Querystring: { ref?: string; path?: string };
+  }>("/api/repos/:id/tree", async (req, reply) => {
+    const repo = getRepo(ctx.db, req.params.id);
+    if (!repo) {
+      reply.code(404);
+      return { error: "repo_not_found" };
+    }
+    const ref = req.query.ref || repo.default_branch || "HEAD";
+    const entries = await listTree(repo.abs_path, ref, req.query.path ?? "");
+    return { ref, path: req.query.path ?? "", entries };
+  });
+
+  app.get<{
+    Params: { id: string };
+    Querystring: { ref?: string; path?: string };
+  }>("/api/repos/:id/file", async (req, reply) => {
+    const repo = getRepo(ctx.db, req.params.id);
+    if (!repo) {
+      reply.code(404);
+      return { error: "repo_not_found" };
+    }
+    const ref = req.query.ref || repo.default_branch || "HEAD";
+    const path = req.query.path;
+    if (!path) {
+      reply.code(400);
+      return { error: "path_required" };
+    }
+    const file = await readFile(repo.abs_path, ref, path);
+    if (!file) {
+      reply.code(404);
+      return { error: "file_not_found" };
+    }
+    return file;
   });
 }

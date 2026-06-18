@@ -35,6 +35,7 @@ export class NotSupported extends Error {
 
 export interface AgentSource {
   id: string;
+  displayName?: string;
   capabilities: AgentCapabilities;
 
   // read — implemented now

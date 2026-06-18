@@ -149,6 +149,7 @@ function deriveStatus(mtimeMs: number): AgentSession["status"] {
  */
 export class ClaudeCodeSource implements AgentSource {
   readonly id = "claude-code";
+  readonly displayName = "Claude Code";
   readonly capabilities = { observe: true, control: false };
 
   private watcher: FSWatcher | null = null;

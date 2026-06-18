@@ -12,6 +12,7 @@ import {
 import type { AgentSessionRow } from "../types.js";
 import type { WsHub } from "../ws.js";
 import { ClaudeCodeSource } from "./claudeCode.js";
+import { GenericTranscriptSource, defaultGenericProviders } from "./genericSource.js";
 import type { AgentSession, AgentSource } from "./source.js";
 
 /**
@@ -29,11 +30,24 @@ export class AgentManager {
     private db: DB,
     private hub: WsHub,
   ) {
-    this.sources = [new ClaudeCodeSource()];
+    // Claude Code (with hook support) plus best-effort generic providers
+    // (Codex, Antigravity, …). Inactive providers contribute nothing.
+    this.sources = [
+      new ClaudeCodeSource(),
+      ...defaultGenericProviders().map((p) => new GenericTranscriptSource(p)),
+    ];
   }
 
-  sourceCapabilities(): { id: string; capabilities: AgentSource["capabilities"] }[] {
-    return this.sources.map((s) => ({ id: s.id, capabilities: s.capabilities }));
+  sourceCapabilities(): {
+    id: string;
+    displayName: string;
+    capabilities: AgentSource["capabilities"];
+  }[] {
+    return this.sources.map((s) => ({
+      id: s.id,
+      displayName: s.displayName ?? s.id,
+      capabilities: s.capabilities,
+    }));
   }
 
   /** Apply current config: enable observation (and hooks) or tear it down. */

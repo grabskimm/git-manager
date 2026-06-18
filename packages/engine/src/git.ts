@@ -68,6 +68,28 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   return res.code === 0 && res.stdout.trim() === "true";
 }
 
+/** A git URL (https/http/git/ssh/file) or scp-like `user@host:path`. */
+export function isRemoteUrl(s: string): boolean {
+  return /^(https?|git|ssh|file):\/\//i.test(s) || /^[^/\\\s]+@[^/\\\s:]+:.+/.test(s);
+}
+
+/** Derive a repo directory name from a clone URL. */
+export function repoNameFromUrl(url: string): string {
+  const last =
+    url
+      .replace(/\/+$/, "")
+      .replace(/\.git$/i, "")
+      .split(/[/:]/)
+      .filter(Boolean)
+      .pop() ?? "repo";
+  return last.replace(/[^\w.-]/g, "-") || "repo";
+}
+
+/** Clone a remote repo into a local directory (the local .git stays canonical). */
+export async function cloneRepo(url: string, targetDir: string): Promise<GitResult> {
+  return runGit(process.cwd(), ["clone", url, targetDir]);
+}
+
 /** Top-level work tree of a repo containing `dir`, or null. */
 export async function repoToplevel(dir: string): Promise<string | null> {
   const res = await runGit(dir, ["rev-parse", "--show-toplevel"]);
@@ -215,4 +237,83 @@ export async function diffStat(
 ): Promise<string> {
   const res = await runGit(repo, ["diff", "--stat", `${base}...${head}`]);
   return res.code === 0 ? res.stdout : "";
+}
+
+export interface TreeEntry {
+  name: string;
+  path: string;
+  type: "tree" | "blob";
+  size: number | null;
+}
+
+/** List immediate children of a directory at a given ref. */
+export async function listTree(
+  repo: string,
+  ref: string,
+  dirPath = "",
+): Promise<TreeEntry[]> {
+  const prefix = dirPath ? dirPath.replace(/\/?$/, "/") : "";
+  const args = ["ls-tree", "-l", ref];
+  if (prefix) args.push(prefix);
+  const res = await runGit(repo, args);
+  if (res.code !== 0) return [];
+  const entries: TreeEntry[] = [];
+  for (const line of res.stdout.split("\n")) {
+    const m = /^(\d+)\s+(\w+)\s+([0-9a-f]+)\s+(\S+)\t(.*)$/.exec(line);
+    if (!m) continue;
+    const type = m[2] === "tree" ? "tree" : "blob";
+    const sizeRaw = m[4];
+    const fullPath = m[5] ?? "";
+    const name = fullPath.split("/").filter(Boolean).pop() ?? fullPath;
+    entries.push({
+      name,
+      path: fullPath,
+      type,
+      size: sizeRaw === "-" ? null : Number(sizeRaw),
+    });
+  }
+  // Directories first, then files; each alphabetically.
+  entries.sort((a, b) => {
+    if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+  return entries;
+}
+
+export interface FileContent {
+  path: string;
+  ref: string;
+  size: number;
+  binary: boolean;
+  truncated: boolean;
+  content: string;
+}
+
+const MAX_FILE_BYTES = 1_000_000;
+
+/** Read a file's contents at a ref, guarding against binary/huge blobs. */
+export async function readFile(
+  repo: string,
+  ref: string,
+  filePath: string,
+): Promise<FileContent | null> {
+  const sizeRes = await runGit(repo, ["cat-file", "-s", `${ref}:${filePath}`]);
+  if (sizeRes.code !== 0) return null;
+  const size = Number(sizeRes.stdout.trim()) || 0;
+
+  if (size > MAX_FILE_BYTES) {
+    return { path: filePath, ref, size, binary: false, truncated: true, content: "" };
+  }
+
+  const res = await runGit(repo, ["show", `${ref}:${filePath}`]);
+  if (res.code !== 0) return null;
+  const binary = res.stdout.indexOf("\u0000") !== -1;
+  return {
+    path: filePath,
+    ref,
+    size,
+    binary,
+    truncated: false,
+    content: binary ? "" : res.stdout,
+  };
 }
