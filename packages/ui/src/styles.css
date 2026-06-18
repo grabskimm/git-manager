@@ -137,6 +137,7 @@ input:focus, textarea:focus, select:focus {
   font-size: 13px;
 }
 .repo-item:hover, .nav-item:hover { background: var(--bg-elev-2); text-decoration: none; }
+.repo-item.kbd-sel { box-shadow: inset 0 0 0 1px var(--accent); }
 .repo-item.active, .nav-item.active { background: var(--accent-bg); color: #fff; }
 .repo-item .repo-id { font-family: var(--mono); font-size: 10px; color: var(--fg-faint); }
 .repo-item.active .repo-id { color: rgba(255,255,255,0.7); }
