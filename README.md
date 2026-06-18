@@ -76,6 +76,10 @@ the local token + Origin automatically), so you can drive local PRs without the 
 
 ```bash
 gitm                                   # start the engine + open the UI (alias of `gitm start`)
+gitm source add <path|url>             # add a source directory (or clone a URL)
+gitm source list                       # list source directories
+gitm source remove <id>                # remove a source directory
+gitm scan                              # re-scan all source directories
 gitm repos                             # list ingested repositories
 gitm pr create --repo <id|name> --base main --head feature --title "My change" [--description "…"]
 gitm pr list [--repo <id|name>]        # list pull requests

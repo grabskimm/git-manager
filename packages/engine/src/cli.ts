@@ -210,6 +210,60 @@ async function cmdPr(args: string[]): Promise<void> {
   }
 }
 
+interface SourceDir {
+  id: string;
+  path: string;
+  added_at: string;
+}
+
+async function cmdSourceList(): Promise<void> {
+  const dirs = await apiCall<SourceDir[]>("GET", "/api/source-dirs");
+  if (dirs.length === 0) {
+    process.stdout.write("No source directories.\n");
+    return;
+  }
+  for (const d of dirs) process.stdout.write(`${pad(d.id.slice(0, 8), 10)} ${d.path}\n`);
+}
+
+async function cmdSourceAdd(pathOrUrl: string | undefined): Promise<void> {
+  if (!pathOrUrl) throw new Error("Usage: gitm source add <path|url>");
+  const res = await apiCall<{ scanned: number; cloned?: string }>("POST", "/api/source-dirs", {
+    path: pathOrUrl,
+  });
+  const cloned = res.cloned ? ` (cloned into ${res.cloned})` : "";
+  process.stdout.write(
+    `Added. ${res.scanned} repositor${res.scanned === 1 ? "y" : "ies"} now tracked${cloned}.\n`,
+  );
+}
+
+async function cmdSourceRemove(id: string | undefined): Promise<void> {
+  if (!id) throw new Error("Usage: gitm source remove <id>");
+  await apiCall("DELETE", `/api/source-dirs/${id}`);
+  process.stdout.write(`Removed source directory ${id}.\n`);
+}
+
+async function cmdSource(args: string[]): Promise<void> {
+  const sub = args[0];
+  switch (sub) {
+    case "list":
+      return cmdSourceList();
+    case "add":
+      return cmdSourceAdd(args[1]);
+    case "remove":
+    case "rm":
+      return cmdSourceRemove(args[1]);
+    default:
+      throw new Error("Usage: gitm source <list|add|remove> …");
+  }
+}
+
+async function cmdScan(): Promise<void> {
+  const res = await apiCall<{ scanned: number; repos: Repo[] }>("POST", "/api/scan");
+  process.stdout.write(
+    `Scanned ${res.scanned} source director${res.scanned === 1 ? "y" : "ies"}; ${res.repos.length} repositor${res.repos.length === 1 ? "y" : "ies"} found.\n`,
+  );
+}
+
 function openBrowser(url: string): void {
   if (process.env.GITMANAGER_NO_OPEN || process.argv.includes("--no-open")) return;
   const platform = process.platform;
@@ -240,6 +294,10 @@ function help(): void {
       "",
       "Usage:",
       "  gitm [start]                         Start the engine and open the UI (default)",
+      "  gitm source add <path|url>           Add a source directory (or clone a URL)",
+      "  gitm source list                     List source directories",
+      "  gitm source remove <id>              Remove a source directory",
+      "  gitm scan                            Re-scan all source directories",
       "  gitm repos                           List ingested repositories",
       "  gitm pr list [--repo <id|name>]      List pull requests",
       "  gitm pr create --repo <id|name> --base <ref> --head <ref> --title <t> [--description <d>]",
@@ -294,6 +352,11 @@ async function main(): Promise<void> {
       return;
     case "repos":
       return cmdRepos();
+    case "source":
+    case "sources":
+      return cmdSource(rest);
+    case "scan":
+      return cmdScan();
     case "pr":
       return cmdPr(rest);
     case "--help":
