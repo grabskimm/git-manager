@@ -7,6 +7,7 @@ import { openDb } from "./db.js";
 import { loadOrCreateToken } from "./token.js";
 import { buildAllowedOrigins, registerSecurity } from "./security.js";
 import { WsHub } from "./ws.js";
+import { TerminalServer } from "./terminal.js";
 import { AgentManager } from "./agents/manager.js";
 import type { AppContext } from "./context.js";
 import { registerSourceRoutes } from "./routes/sources.js";
@@ -92,6 +93,7 @@ export async function startEngine(
   registerSecurity(app, token, allowedOrigins);
 
   const hub = new WsHub(app.server, token, allowedOrigins);
+  new TerminalServer(app.server, token, allowedOrigins, db);
   const agents = new AgentManager(db, hub);
 
   const ctx: AppContext = { db, hub, agents, token, allowedOrigins, host, port };

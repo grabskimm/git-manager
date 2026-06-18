@@ -5,9 +5,10 @@ import { useApp } from "../state";
 import { DiffViewer } from "../components/DiffViewer";
 import { StatusBadge } from "../components/StatusBadge";
 import { FileBrowser } from "../components/FileBrowser";
+import { Terminal } from "../components/Terminal";
 import type { Branch, Commit, DiffResponse, Pr, Repo } from "../types";
 
-type Tab = "files" | "prs" | "commits";
+type Tab = "files" | "prs" | "commits" | "terminal";
 
 export function RepoView() {
   const { repoId = "" } = useParams();
@@ -108,7 +109,7 @@ export function RepoView() {
   const defRef = repo.default_branch ?? branches[0]?.name ?? "HEAD";
 
   return (
-    <div className="page">
+    <div className={tab === "terminal" ? "page page--terminal" : "page"}>
       <div className="spread">
         <div>
           <h1>{repo.display_name}</h1>
@@ -128,6 +129,9 @@ export function RepoView() {
         </button>
         <button className={`tab ${tab === "commits" ? "active" : ""}`} onClick={() => setTab("commits")}>
           Commits
+        </button>
+        <button className={`tab ${tab === "terminal" ? "active" : ""}`} onClick={() => setTab("terminal")}>
+          Terminal
         </button>
       </div>
 
@@ -194,6 +198,8 @@ export function RepoView() {
           )}
         </>
       )}
+
+      {tab === "terminal" && <Terminal repoId={repoId} />}
 
       {tab === "commits" && (
         <>

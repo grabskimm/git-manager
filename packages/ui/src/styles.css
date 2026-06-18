@@ -100,7 +100,7 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   flex-direction: column;
 }
-.main { overflow-y: auto; padding: 0; }
+.main { overflow-y: auto; padding: 0; display: flex; flex-direction: column; }
 .agent-panel {
   width: 340px;
   background: var(--bg-elev);
@@ -509,3 +509,31 @@ small.kbd {
 :root[data-theme="light"] .hljs-type,
 :root[data-theme="light"] .hljs-class .hljs-title { color: #953800; }
 :root[data-theme="light"] .hljs { color: var(--fg); }
+
+/* ---- terminal ---- */
+/* When the terminal tab is active the page wrapper expands to fill the main area */
+.page--terminal {
+  padding: 0;
+  max-width: none;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+/* The header (title + tabs) keeps normal padding inside the terminal layout */
+.page--terminal > .spread,
+.page--terminal > .tabs {
+  padding: 0 28px;
+}
+.page--terminal > .spread { padding-top: 24px; }
+.page--terminal > .banner { margin: 0 28px; }
+.terminal-pane {
+  flex: 1 1 0;
+  min-height: 0;
+  /* xterm.js injects its canvas; give it a dark floor regardless of theme */
+  background: #0d1117;
+  overflow: hidden;
+}
+:root[data-theme="light"] .terminal-pane { background: #f6f8fa; }
+/* xterm viewport shouldn't overflow the pane */
+.terminal-pane .xterm { height: 100%; }
+.terminal-pane .xterm-viewport { overflow-y: hidden !important; }
