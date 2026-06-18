@@ -320,7 +320,21 @@ function help(): void {
 }
 
 async function startServer(): Promise<void> {
-  const engine = await startEngine();
+  let engine: Awaited<ReturnType<typeof startEngine>>;
+  try {
+    engine = await startEngine();
+  } catch (err) {
+    const msg = (err as NodeJS.ErrnoException).message ?? String(err);
+    if ((err as NodeJS.ErrnoException).code === "EADDRINUSE") {
+      process.stderr.write(
+        `Port ${port()} is already in use — the GitManager engine appears to be running.\n` +
+          `Use subcommands to talk to it:  gitm repos · gitm pr list · gitm scan\n` +
+          `Or stop the running engine and retry.\n`,
+      );
+      process.exit(1);
+    }
+    throw new Error(msg);
+  }
   engine.ctx.agents.installHooks("gitm hook-event");
   process.stdout.write(
     [
