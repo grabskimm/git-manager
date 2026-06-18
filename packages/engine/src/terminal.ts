@@ -1,12 +1,43 @@
 import { spawn as spawnPty } from "node-pty";
 import { WebSocket, WebSocketServer } from "ws";
-import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { existsSync, chmodSync, statSync } from "node:fs";
 import { homedir } from "node:os";
+import path from "node:path";
 import type { Server } from "node:http";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { Database } from "better-sqlite3";
 import { safeEqual } from "./token.js";
+
+/**
+ * node-pty ships a small `spawn-helper` binary (macOS/Linux). If it loses its
+ * executable bit — which can happen when the engine is packed and globally
+ * installed — `posix_spawn` fails with the opaque "posix_spawnp failed.".
+ * Ensure it's executable once at startup. Best-effort; never throws.
+ */
+function ensureSpawnHelperExecutable(): void {
+  if (process.platform === "win32") return;
+  try {
+    const require = createRequire(import.meta.url);
+    const ptyMain = require.resolve("node-pty");
+    // ptyMain is .../node-pty/lib/index.js → root is two levels up.
+    const root = path.resolve(path.dirname(ptyMain), "..");
+    const candidates = [
+      path.join(root, "build", "Release", "spawn-helper"),
+      path.join(root, "build", "Debug", "spawn-helper"),
+      path.join(root, "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper"),
+    ];
+    for (const helper of candidates) {
+      if (!existsSync(helper)) continue;
+      const mode = statSync(helper).mode;
+      // Add execute bits for user/group/other if any are missing.
+      if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o755);
+    }
+  } catch {
+    // node-pty layout differs or not resolvable — let the spawn surface it.
+  }
+}
 
 /** Pick the first shell that exists, honoring $SHELL first. */
 function resolveShell(): string {
@@ -67,6 +98,7 @@ export class TerminalServer {
     private allowedOrigins: Set<string>,
     private db: Database,
   ) {
+    ensureSpawnHelperExecutable();
     this.wss = new WebSocketServer({ noServer: true });
 
     server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {

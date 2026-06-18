@@ -51,11 +51,14 @@ export type StreamResult =
 export function runClaudeStreaming(opts: {
   prompt: string;
   onToken: (token: string) => void;
+  model?: string;
 }): Promise<StreamResult> {
   return new Promise((resolve) => {
+    const args = ["--print", "--verbose", "--output-format", "stream-json"];
+    if (opts.model) args.push("--model", opts.model);
     let child;
     try {
-      child = spawn(claudeBin(), ["--print", "--verbose", "--output-format", "stream-json"], {
+      child = spawn(claudeBin(), args, {
         cwd: internalCwd(),
         stdio: ["pipe", "pipe", "pipe"],
       });

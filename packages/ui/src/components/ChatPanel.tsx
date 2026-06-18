@@ -13,6 +13,13 @@ interface Props {
   onToggleMinimize: () => void;
 }
 
+const MODELS: { value: string; label: string }[] = [
+  { value: "", label: "Default" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "opus", label: "Opus" },
+  { value: "haiku", label: "Haiku" },
+];
+
 export function ChatPanel({ minimized, onToggleMinimize }: Props) {
   const { onWs, repos } = useApp();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -20,6 +27,7 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [hasActivity, setHasActivity] = useState(false);
+  const [model, setModel] = useState<string>(() => localStorage.getItem("gm_chat_model") ?? "");
   const activeId = useRef<string | null>(null);
   const streamRef = useRef("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -73,7 +81,7 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
     streamRef.current = "";
     setStreaming("");
     try {
-      const { id } = await api.chat(text, history);
+      const { id } = await api.chat(text, history, model || undefined);
       activeId.current = id;
     } catch (e) {
       setMessages((m) => [...m, { role: "assistant", content: `_Error: ${(e as Error).message}_` }]);
@@ -146,9 +154,26 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
             }
           }}
         />
-        <button className="primary" disabled={!input.trim() || busy} onClick={send}>
-          {busy ? "…" : "Send"}
-        </button>
+        <div className="chat-input-actions">
+          <select
+            className="chat-model-select"
+            value={model}
+            onChange={(e) => {
+              setModel(e.target.value);
+              localStorage.setItem("gm_chat_model", e.target.value);
+            }}
+            title="Model used for repo chat"
+          >
+            {MODELS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <button className="primary" disabled={!input.trim() || busy} onClick={send}>
+            {busy ? "…" : "Send"}
+          </button>
+        </div>
       </div>
     </div>
   );

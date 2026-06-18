@@ -123,10 +123,14 @@ export const api = {
     request<AppConfig>("/api/config", { method: "PUT", body: JSON.stringify(patch) }),
 
   // chat
-  chat: (message: string, history: { role: "user" | "assistant"; content: string }[]) =>
+  chat: (
+    message: string,
+    history: { role: "user" | "assistant"; content: string }[],
+    model?: string,
+  ) =>
     request<{ id: string }>("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, model }),
     }),
 
   // agents

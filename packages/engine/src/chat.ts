@@ -84,6 +84,7 @@ export async function runChat(
   id: string,
   message: string,
   history: ChatMessage[],
+  model?: string,
 ): Promise<void> {
   hub.broadcast("chat.start", { id });
 
@@ -101,6 +102,7 @@ export async function runChat(
 
   const result = await runClaudeStreaming({
     prompt,
+    model,
     onToken: (token) => hub.broadcast("chat.token", { id, token }),
   });
 
