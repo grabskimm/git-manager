@@ -70,6 +70,8 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
   delete_head_on_merge: true,
   review_on_pr_open: true,
   agent_observe_enabled: false,
+  chat_enabled: false,
+  terminal_enabled: false,
 };
 
 export function openDb(file: string = dbPath()): DB {

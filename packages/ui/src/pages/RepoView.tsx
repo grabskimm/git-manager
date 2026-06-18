@@ -13,7 +13,8 @@ type Tab = "files" | "prs" | "commits" | "terminal";
 export function RepoView() {
   const { repoId = "" } = useParams();
   const navigate = useNavigate();
-  const { onWs } = useApp();
+  const { onWs, config } = useApp();
+  const terminalEnabled = config?.terminal_enabled ?? false;
 
   const [repo, setRepo] = useState<Repo | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -54,6 +55,11 @@ export function RepoView() {
     setTab("files");
     void load();
   }, [load]);
+
+  // If the terminal gets disabled while the tab is active, fall back to files.
+  useEffect(() => {
+    if (!terminalEnabled && tab === "terminal") setTab("files");
+  }, [terminalEnabled, tab]);
 
   useEffect(() => {
     return onWs((e) => {
@@ -130,9 +136,11 @@ export function RepoView() {
         <button className={`tab ${tab === "commits" ? "active" : ""}`} onClick={() => setTab("commits")}>
           Commits
         </button>
-        <button className={`tab ${tab === "terminal" ? "active" : ""}`} onClick={() => setTab("terminal")}>
-          Terminal
-        </button>
+        {terminalEnabled && (
+          <button className={`tab ${tab === "terminal" ? "active" : ""}`} onClick={() => setTab("terminal")}>
+            Terminal
+          </button>
+        )}
       </div>
 
       {error && <div className="banner error">{error}</div>}

@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { DB } from "../db.js";
 import { getConfig } from "../config.js";
 import { currentBranch, repoToplevel } from "../git.js";
@@ -96,11 +98,21 @@ export class AgentManager {
   async refresh(): Promise<AgentSessionRow[]> {
     if (!this.enabled) return listSessions(this.db);
 
+    // The internal cwd used by GitManager's own `claude --print` subprocesses.
+    // Sessions whose cwd matches this path are our own review/chat runs and
+    // should never appear as user-facing agent sessions.
+    const internalCwd = join(
+      process.env.GITMANAGER_HOME ?? join(homedir(), ".gitmanager"),
+      ".internal",
+    );
+
     const activeIds: string[] = [];
     for (const source of this.sources) {
       let sessions: AgentSession[] = [];
       try {
-        sessions = await source.discoverSessions();
+        sessions = (await source.discoverSessions()).filter(
+          (s) => s.cwd !== internalCwd,
+        );
       } catch {
         sessions = [];
       }

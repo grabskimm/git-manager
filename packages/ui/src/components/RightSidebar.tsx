@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useApp } from "../state";
 import { AgentPanel } from "./AgentPanel";
 import { ChatPanel } from "./ChatPanel";
 
@@ -9,6 +10,7 @@ import { ChatPanel } from "./ChatPanel";
  * survives a sidebar collapse. Collapse / chat-minimize are CSS-only toggles.
  */
 export function RightSidebar() {
+  const { config } = useApp();
   const [collapsed, setCollapsed] = useState(false);
   const [chatMinimized, setChatMinimized] = useState(false);
 
@@ -40,10 +42,12 @@ export function RightSidebar() {
           <AgentPanel />
         </div>
 
-        <ChatPanel
-          minimized={chatMinimized}
-          onToggleMinimize={() => setChatMinimized((m) => !m)}
-        />
+        {config?.chat_enabled && (
+          <ChatPanel
+            minimized={chatMinimized}
+            onToggleMinimize={() => setChatMinimized((m) => !m)}
+          />
+        )}
       </div>
     </aside>
   );

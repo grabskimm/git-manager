@@ -1,8 +1,26 @@
 import { spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 /** Resolved at call time so tests and users can override the binary. */
 export function claudeBin(): string {
   return process.env.GITMANAGER_CLAUDE_BIN || "claude";
+}
+
+/**
+ * A dedicated cwd for all internal `claude --print` subprocess calls.
+ * Using a fixed path inside GITMANAGER_HOME ensures the Claude Code agent
+ * transcript discovery never picks up our review/chat sessions as user
+ * sessions (they would otherwise pollute the agent observe panel).
+ */
+function internalCwd(): string {
+  const home = process.env.GITMANAGER_HOME ?? join(homedir(), ".gitmanager");
+  const dir = join(home, ".internal");
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch {}
+  return dir;
 }
 
 /** Is the `claude` CLI present and runnable? */
@@ -31,7 +49,6 @@ export type StreamResult =
  * result on any failure so callers can degrade gracefully.
  */
 export function runClaudeStreaming(opts: {
-  cwd: string;
   prompt: string;
   onToken: (token: string) => void;
 }): Promise<StreamResult> {
@@ -39,7 +56,7 @@ export function runClaudeStreaming(opts: {
     let child;
     try {
       child = spawn(claudeBin(), ["--print", "--verbose", "--output-format", "stream-json"], {
-        cwd: opts.cwd,
+        cwd: internalCwd(),
         stdio: ["pipe", "pipe", "pipe"],
       });
     } catch (err) {

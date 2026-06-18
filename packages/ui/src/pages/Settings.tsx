@@ -113,6 +113,35 @@ export function Settings() {
               </div>
             </span>
           </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={config.chat_enabled}
+              onChange={(e) => setConfig({ chat_enabled: e.target.checked })}
+            />
+            <span>
+              Enable repo chat
+              <div className="faint" style={{ fontSize: 12 }}>
+                Chat panel in the right sidebar talks to your <code>claude</code> about all
+                repos in your source list (read-only metadata). Skips gracefully if{" "}
+                <code>claude</code> isn't installed.
+              </div>
+            </span>
+          </label>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={config.terminal_enabled}
+              onChange={(e) => setConfig({ terminal_enabled: e.target.checked })}
+            />
+            <span>
+              Enable built-in terminal (opt-in)
+              <div className="faint" style={{ fontSize: 12 }}>
+                Adds a Terminal tab to each repo view. Opens a real shell (<code>$SHELL</code>)
+                already <code>cd</code>'d into the repo directory.
+              </div>
+            </span>
+          </label>
         </div>
       )}
 

@@ -96,12 +96,22 @@ gitm source list                       # list source directories
 gitm source remove <id>                # remove a source directory
 gitm scan                              # re-scan all source directories
 gitm repos                             # list ingested repositories
+gitm pr create                         # inside a tracked repo: auto-detects repo, branch, base, title
+gitm pr create --title "My change"    # explicit title; repo/branch/base still auto-detected
 gitm pr create --repo <id|name> --base main --head feature --title "My change" [--description "…"]
 gitm pr list [--repo <id|name>]        # list pull requests
 gitm pr view <pr-id>                   # show a PR and its review thread
 gitm pr merge <pr-id>                  # merge (fast-forward / merge commit)
 gitm pr close <pr-id>                  # close a PR
 ```
+
+When run from inside a tracked git repo, `gitm pr create` behaves like `gh pr create`:
+- **`--repo`** defaults to the repo whose path matches the current directory
+- **`--head`** defaults to the current branch (`git branch --show-current`)
+- **`--base`** defaults to the repo's default branch (usually `main`)
+- **`--title`** defaults to the last commit subject on the current branch
+
+All flags remain available as explicit overrides.
 
 `--repo` accepts a repo id, exact display name, or an unambiguous substring/prefix. Creating
 a PR triggers the automatic Claude review just like the UI. (See **Install globally** above to
@@ -212,6 +222,8 @@ Stored in SQLite (`config` table), editable in Settings:
 | `review_on_pr_open` | `true` | Run the Claude review automatically when a PR opens |
 | `delete_head_on_merge` | `true` | Delete the head branch after a successful merge |
 | `agent_observe_enabled` | `false` | Enable the read-only agent observe panel |
+| `chat_enabled` | `false` | Enable the repo chat panel in the right sidebar |
+| `terminal_enabled` | `false` | Enable the built-in terminal tab on each repo view |
 
 Environment overrides: `GITMANAGER_PORT` (default `4317`), `GITMANAGER_HOME` (default
 `~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`).

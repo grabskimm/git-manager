@@ -1,7 +1,6 @@
-import os from "node:os";
 import type { DB } from "./db.js";
 import type { WsHub } from "./ws.js";
-import { listRepos, listSourceDirs } from "./store.js";
+import { listRepos } from "./store.js";
 import { listBranches, log } from "./git.js";
 import { isClaudeAvailable, runClaudeStreaming } from "./claudeProcess.js";
 
@@ -100,12 +99,7 @@ export async function runChat(
   const context = await buildRepoContext(db);
   const prompt = composePrompt(context, history, message);
 
-  // Run from a source dir (or home) — context is provided inline, so cwd is just
-  // a neutral working directory.
-  const cwd = listSourceDirs(db)[0]?.path || os.homedir();
-
   const result = await runClaudeStreaming({
-    cwd,
     prompt,
     onToken: (token) => hub.broadcast("chat.token", { id, token }),
   });

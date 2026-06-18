@@ -110,7 +110,6 @@ export async function runReview(
     .join("\n");
 
   const result = await runClaudeStreaming({
-    cwd: repo.abs_path,
     prompt: fullPrompt,
     onToken: (token) => hub.broadcast("review.token", { prId: pr.id, token }),
   });
