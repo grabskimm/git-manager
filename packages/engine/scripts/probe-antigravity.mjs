@@ -139,10 +139,58 @@ function dumpSchema(db) {
       const raw = Buffer.isBuffer(row.value) ? row.value.toString("utf8") : String(row.value);
       parsed = JSON.parse(raw);
     } catch {
-      console.log(`  SCHEMA ${key}: (not JSON)`);
+      diagnose(key, row.value);
       continue;
     }
     console.log(`  SCHEMA ${key}:\n    ${shape(parsed)}`);
+  }
+}
+
+function hexHead(buf, n = 64) {
+  return buf.subarray(0, n).toString("hex").replace(/(..)/g, "$1 ").trim();
+}
+function preview(buf, n = 100) {
+  let s = "";
+  for (let i = 0; i < Math.min(n, buf.length); i++) {
+    const c = buf[i];
+    s += c >= 32 && c < 127 ? String.fromCharCode(c) : ".";
+  }
+  return s;
+}
+
+// Identify the encoding of a non-JSON value (protobuf? base64? gzip?) without
+// dumping full content — just the head bytes and a few decode probes.
+function diagnose(key, value) {
+  const zlib = require("node:zlib");
+  const isBlob = Buffer.isBuffer(value);
+  const buf = isBlob ? value : Buffer.from(String(value), "utf8");
+  console.log(`  RAW ${key}: type=${isBlob ? "BLOB" : "TEXT"} bytes=${buf.length}`);
+  console.log(`    hex  : ${hexHead(buf)}`);
+  console.log(`    ascii: ${preview(buf)}`);
+
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    try {
+      const z = zlib.gunzipSync(buf);
+      console.log(`    gunzip-> bytes=${z.length} ascii=${preview(z, 140)}`);
+    } catch (e) {
+      console.log(`    gunzip failed: ${e.message}`);
+    }
+  }
+
+  if (!isBlob) {
+    const s = String(value).trim();
+    if (/^[A-Za-z0-9+/=\r\n]+$/.test(s) && s.length > 8) {
+      try {
+        const d = Buffer.from(s, "base64");
+        console.log(`    base64-> bytes=${d.length} hex=${hexHead(d, 32)} ascii=${preview(d)}`);
+        if (d[0] === 0x1f && d[1] === 0x8b) {
+          const z = zlib.gunzipSync(d);
+          console.log(`    base64+gunzip-> ascii=${preview(z, 140)}`);
+        }
+      } catch {
+        // not base64
+      }
+    }
   }
 }
 
