@@ -96,8 +96,11 @@ function canonical(p: string): string {
   return c.replace(/\/+$/, "");
 }
 
-const PATH_RE = /^(file:\/\/|[a-zA-Z]:[\\/]|\/(mnt|home|Users)\/)/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function plausibleMs(v: bigint): number | null {
   const n = Number(v);
@@ -131,7 +134,14 @@ export function parseTrajectories(
     return [];
   }
   const known = knownFolders
-    .map((f) => ({ platform: normalizeToPlatform(f), canon: canonical(normalizeToPlatform(f)) }))
+    .map((f) => {
+      const platform = normalizeToPlatform(f);
+      const canon = canonical(platform);
+      // Match the folder as a whole path component: a filename-continuation
+      // char on either side means it's a different name (github vs github-x).
+      const re = new RegExp(`(?<![a-z0-9._-])${escapeRegExp(canon)}(?![a-z0-9._-])`);
+      return { platform, canon, re };
+    })
     .filter((k) => k.canon.length > 1)
     .sort((a, b) => b.canon.length - a.canon.length); // longest (most specific) first
 
@@ -146,18 +156,27 @@ export function parseTrajectories(
     if (!id || seen.has(id)) continue;
     seen.add(id);
 
-    // cwd: match any path-like string against the known workspace folders.
+    // cwd: a known workspace folder may appear ANYWHERE inside a string (e.g.
+    // embedded in a terminal prompt like "PS M:\git\tf-avd-module> ..."), so
+    // match it as a whole path component (boundaries on both sides), longest
+    // (most specific) folder first.
     let cwd = "";
-    const pathStrings = strings.filter((s) => PATH_RE.test(s)).map(canonical);
+    const canonStrings = strings.map(canonical);
     for (const k of known) {
-      if (pathStrings.some((ps) => ps === k.canon || ps.startsWith(k.canon + "/"))) {
+      if (canonStrings.some((cs) => k.re.test(cs))) {
         cwd = k.platform;
         break;
       }
     }
     if (!cwd) {
-      const anyPath = strings.find((s) => PATH_RE.test(s));
-      if (anyPath) cwd = normalizeToPlatform(anyPath);
+      // Last resort: pull an embedded absolute path out of any string.
+      for (const s of strings) {
+        const m = /([a-zA-Z]:[\\/][^\s"'<>|]+|\/(?:mnt|home|Users)\/[^\s"'<>|]+|file:\/\/[^\s"']+)/.exec(s);
+        if (m) {
+          cwd = normalizeToPlatform(m[1]);
+          break;
+        }
+      }
     }
 
     const times = varints.map(plausibleMs).filter((n): n is number => n !== null);

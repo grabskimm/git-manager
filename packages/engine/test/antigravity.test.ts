@@ -80,6 +80,39 @@ describe("parseTrajectories", () => {
     expect(result[0].lastEventAt).toBe(new Date(ts).toISOString());
   });
 
+  it("binds cwd when the folder is embedded mid-string (e.g. a shell prompt)", () => {
+    const uuid = "d06ab8f7-8db3-4d61-85c1-c6cb97f277ec";
+    // The path lives inside a PowerShell-prompt string, not at the start.
+    const entry = Buffer.concat([
+      strField(1, uuid),
+      strField(2, "PS M:\\git\\tf-avd-module\\examples> terraform plan"),
+    ]);
+    const b64 = msgField(1, entry).toString("base64");
+    const result = parseTrajectories(b64, ["file:///m%3A/git/tf-avd-module"], Date.now());
+    expect(result).toHaveLength(1);
+    const expectedCwd =
+      process.platform === "win32" ? "M:\\git\\tf-avd-module" : "/mnt/m/git/tf-avd-module";
+    expect(result[0].cwd).toBe(expectedCwd);
+  });
+
+  it("prefers the most specific (longest) workspace folder", () => {
+    const uuid = "11111111-2222-3333-4444-555555555555";
+    const entry = Buffer.concat([
+      strField(1, uuid),
+      strField(2, "cd M:\\git\\github-actions && ls"),
+    ]);
+    const b64 = msgField(1, entry).toString("base64");
+    // Both the umbrella and the specific repo are known; the specific wins.
+    const result = parseTrajectories(
+      b64,
+      ["file:///m%3A/git", "file:///m%3A/git/github-actions"],
+      Date.now(),
+    );
+    const expectedCwd =
+      process.platform === "win32" ? "M:\\git\\github-actions" : "/mnt/m/git/github-actions";
+    expect(result[0].cwd).toBe(expectedCwd);
+  });
+
   it("returns nothing for garbage input (fail-soft)", () => {
     expect(parseTrajectories("not!!base64!!", [], Date.now())).toEqual([]);
   });
