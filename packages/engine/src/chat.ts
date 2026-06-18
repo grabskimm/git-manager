@@ -14,8 +14,9 @@ export interface ChatMessage {
  * the source list (name, path, branches, recent commits). No file contents —
  * the assistant reasons across all repos from this summary.
  */
-async function buildRepoContext(db: DB): Promise<string> {
-  const repos = listRepos(db);
+async function buildRepoContext(db: DB, repoId?: string): Promise<string> {
+  let repos = listRepos(db);
+  if (repoId) repos = repos.filter((r) => r.id === repoId);
   if (repos.length === 0) return "There are no repositories ingested yet.";
 
   const blocks: string[] = [];
@@ -85,6 +86,7 @@ export async function runChat(
   message: string,
   history: ChatMessage[],
   model?: string,
+  repoId?: string,
 ): Promise<void> {
   hub.broadcast("chat.start", { id });
 
@@ -97,7 +99,7 @@ export async function runChat(
     return;
   }
 
-  const context = await buildRepoContext(db);
+  const context = await buildRepoContext(db, repoId);
   const prompt = composePrompt(context, history, message);
 
   const result = await runClaudeStreaming({

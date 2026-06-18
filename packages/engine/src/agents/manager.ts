@@ -17,6 +17,7 @@ import type { WsHub } from "../ws.js";
 import { ClaudeCodeSource } from "./claudeCode.js";
 import { GenericTranscriptSource, defaultGenericProviders } from "./genericSource.js";
 import { AntigravitySource } from "./antigravity.js";
+import { CopilotCliSource } from "./copilot.js";
 import type { AgentSession, AgentSource } from "./source.js";
 
 /**
@@ -40,6 +41,7 @@ export class AgentManager {
     this.sources = [
       new ClaudeCodeSource(),
       new AntigravitySource(),
+      new CopilotCliSource(),
       ...defaultGenericProviders().map((p) => new GenericTranscriptSource(p)),
     ];
   }

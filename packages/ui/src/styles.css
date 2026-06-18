@@ -529,9 +529,25 @@ input:focus, textarea:focus, select:focus {
   flex: 0 0 auto;
 }
 .chat-panel.chat-minimized .chat-body,
+.chat-panel.chat-minimized .chat-controls,
 .chat-panel.chat-minimized .chat-input {
   display: none;
 }
+
+.chat-controls {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-muted);
+  flex-shrink: 0;
+}
+.chat-controls select {
+  font-size: 12px;
+  padding: 4px 8px;
+  color: var(--fg-muted);
+}
+.chat-scope-select { flex: 1 1 auto; min-width: 0; }
+.chat-model-select { flex: 0 0 auto; width: auto; }
 
 .chat-head {
   display: flex;
@@ -590,23 +606,11 @@ input:focus, textarea:focus, select:focus {
   border-top: 1px solid var(--border-muted);
   padding: 8px;
   display: flex;
-  flex-direction: column;
   gap: 6px;
+  align-items: flex-end;
   flex-shrink: 0;
 }
 .chat-input textarea { resize: none; font-size: 13px; }
-.chat-input-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.chat-input-actions .primary { margin-left: auto; }
-.chat-model-select {
-  width: auto;
-  font-size: 12px;
-  padding: 4px 8px;
-  color: var(--fg-muted);
-}
 
 .collapse-btn { background: none; border: none; padding: 12px; width: 100%; }
 

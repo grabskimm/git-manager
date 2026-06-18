@@ -215,11 +215,20 @@ matching open PR. Sessions are grouped by provider in the panel. Live updates co
 watching the transcript directories; for Claude Code a hook config is also merged into its
 `settings.json` (best-effort) for lower latency.
 
-**Multiple providers.** Beyond Claude Code, GitManager observes any tool that writes
-JSON/JSONL session transcripts. A tolerant parser (in `agents/transcript.ts`) locates the
-working directory across differing field names, so additional providers are just registry
-entries — **Codex**, **Antigravity**, and **Gemini CLI** are registered out of the box and
-fail soft when not installed (they contribute nothing). All remain observe-only.
+**Multiple providers.** Beyond Claude Code, GitManager observes several agents out of the box,
+all observe-only and failing soft when not installed:
+
+- **Claude Code**, **Codex**, **Gemini CLI** — JSON/JSONL session transcripts, parsed by a
+  tolerant reader (`agents/transcript.ts`) that locates the working directory across differing
+  field names.
+- **Antigravity** — a Windsurf/Codeium-based VS Code fork that stores "trajectories" as
+  base64-protobuf inside its SQLite state store (`state.vscdb`); a dedicated source
+  (`agents/antigravity.ts`) reads it via `better-sqlite3`.
+- **GitHub Copilot CLI** — reads `~/.copilot/session-state/<id>/vscode.metadata.json`
+  (`agents/copilot.ts`).
+
+Sources that store paths in Windows form bind correctly from a Linux/WSL engine (and vice
+versa) via automatic `C:\…` ↔ `/mnt/c/…` translation.
 
 All agent data flows through a single `AgentSource` adapter (`packages/engine/src/agents`).
 The UI renders against each source's `capabilities`, so **control buttons simply don't

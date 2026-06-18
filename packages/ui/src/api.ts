@@ -137,10 +137,11 @@ export const api = {
     message: string,
     history: { role: "user" | "assistant"; content: string }[],
     model?: string,
+    repoId?: string,
   ) =>
     request<{ id: string }>("/api/chat", {
       method: "POST",
-      body: JSON.stringify({ message, history, model }),
+      body: JSON.stringify({ message, history, model, repoId }),
     }),
 
   // agents
