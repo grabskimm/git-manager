@@ -44,9 +44,11 @@ export class WsHub {
         return;
       }
 
-      // Origin check (blocks DNS-rebinding / cross-site upgrades).
+      // Origin check (blocks DNS-rebinding / cross-site upgrades). Browsers
+      // always send Origin on a WebSocket handshake, so require an allowed one —
+      // a missing Origin can only be a non-browser client trying to bypass it.
       const origin = req.headers.origin;
-      if (origin && !this.allowedOrigins.has(origin)) {
+      if (!origin || !this.allowedOrigins.has(origin)) {
         socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
         socket.destroy();
         return;

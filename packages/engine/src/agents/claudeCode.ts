@@ -176,9 +176,9 @@ export class ClaudeCodeSource implements AgentSource {
     // Newest activity first; de-dupe by session id (keep most recent file).
     const bySession = new Map<string, AgentSession>();
     for (const s of sessions.sort((a, b) =>
-      (a.lastEventAt ?? "").localeCompare(b.lastEventAt ?? ""),
+      (b.lastEventAt ?? "").localeCompare(a.lastEventAt ?? ""),
     )) {
-      bySession.set(s.id, s);
+      if (!bySession.has(s.id)) bySession.set(s.id, s);
     }
     return [...bySession.values()];
   }

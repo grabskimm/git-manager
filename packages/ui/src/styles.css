@@ -118,6 +118,26 @@ input:focus, textarea:focus, select:focus {
 }
 .brand { font-weight: 600; letter-spacing: 0.2px; }
 .brand .dot { color: var(--green); }
+/* Link-styled buttons (accessible: focusable, keyboard-operable) */
+.brand-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--fg);
+  cursor: pointer;
+}
+.brand-btn:hover { border: none; }
+.crumb {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+.crumb:hover { text-decoration: underline; border: none; }
 
 .rail-section { padding: 10px 8px; }
 .rail-section h3 {

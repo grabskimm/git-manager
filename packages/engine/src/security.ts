@@ -17,9 +17,15 @@ export function registerSecurity(
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
     if (!req.url.startsWith("/api")) return;
 
-    // Origin check: when present it must match the engine's own origin.
+    // Origin check (anti DNS-rebinding / CSRF). A present Origin must match the
+    // engine's own origin. State-changing requests must carry an allowed Origin:
+    // a real same-origin browser call always sends one on POST/PUT/DELETE/PATCH,
+    // and our CLI sets it explicitly, so a missing Origin there can only be a
+    // bypass attempt. Safe (Origin-less) GET/HEAD stay token-only.
     const origin = req.headers.origin;
-    if (origin && !allowedOrigins.has(origin)) {
+    const method = req.method.toUpperCase();
+    const stateChanging = method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+    if (origin ? !allowedOrigins.has(origin) : stateChanging) {
       reply.code(403).send({ error: "forbidden_origin" });
       return reply;
     }

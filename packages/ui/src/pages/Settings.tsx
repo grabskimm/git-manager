@@ -47,7 +47,7 @@ export function Settings() {
       </p>
       <div className="row" style={{ marginBottom: 10 }}>
         <input
-          placeholder="~/projects  ·  C:\Users\you\code  ·  https://host/user/repo.git"
+          placeholder="~/projects  ·  C:\\Users\\you\\code  ·  https://host/user/repo.git"
           value={path}
           onChange={(e) => setPath(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && add()}

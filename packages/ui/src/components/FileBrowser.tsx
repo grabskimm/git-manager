@@ -36,6 +36,14 @@ export function FileBrowser({
     [repoId],
   );
 
+  // Reset the browser when the repo (or its default ref) changes, so we never
+  // issue tree/file requests with a previous repo's ref/path.
+  useEffect(() => {
+    setRef(defaultRef);
+    setDir("");
+    setFile(null);
+  }, [repoId, defaultRef]);
+
   useEffect(() => {
     setFile(null);
     void loadDir(ref, "");
@@ -71,13 +79,17 @@ export function FileBrowser({
       </div>
 
       <div className="breadcrumbs">
-        <a onClick={() => { setFile(null); void loadDir(ref, ""); }}>{repoId.slice(0, 8)}</a>
+        <button type="button" className="crumb" onClick={() => { setFile(null); void loadDir(ref, ""); }}>
+          {repoId.slice(0, 8)}
+        </button>
         {crumbs.map((c, i) => {
           const p = crumbs.slice(0, i + 1).join("/");
           return (
             <span key={p}>
               {" / "}
-              <a onClick={() => { setFile(null); void loadDir(ref, p); }}>{c}</a>
+              <button type="button" className="crumb" onClick={() => { setFile(null); void loadDir(ref, p); }}>
+                {c}
+              </button>
             </span>
           );
         })}

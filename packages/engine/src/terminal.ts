@@ -118,7 +118,7 @@ export class TerminalServer {
       if (url.pathname !== "/ws/terminal") return;
 
       const origin = req.headers.origin;
-      if (origin && !this.allowedOrigins.has(origin)) {
+      if (!origin || !this.allowedOrigins.has(origin)) {
         socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
         socket.destroy();
         return;

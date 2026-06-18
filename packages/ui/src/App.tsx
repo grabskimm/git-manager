@@ -87,9 +87,9 @@ export function App() {
     <div className="app">
       <aside className="rail">
         <div className="rail-header">
-          <span className="brand" onClick={() => navigate("/")} style={{ cursor: "pointer" }}>
+          <button type="button" className="brand brand-btn" onClick={() => navigate("/")}>
             Git<span className="dot">●</span>Manager
-          </span>
+          </button>
           <div className="row" style={{ gap: 6 }}>
             <button
               className="icon-btn"
