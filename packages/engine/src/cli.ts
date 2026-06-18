@@ -1,4 +1,6 @@
 import { execSync, spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
 
@@ -100,6 +102,28 @@ interface CwdContext {
   branch: string;
 }
 
+/**
+ * Normalize a path for comparison: resolve symlinks (so /var vs /private/var
+ * and home symlinks agree) and strip a trailing separator. Falls back to a
+ * plain resolve if the path can't be realpath'd.
+ */
+function canonicalPath(p: string): string {
+  let out = p;
+  try {
+    out = fs.realpathSync(p);
+  } catch {
+    out = path.resolve(p);
+  }
+  return out.replace(/[/\\]+$/, "");
+}
+
+/** Compare two paths, tolerating case-insensitive filesystems (macOS/Windows). */
+function samePath(a: string, b: string): boolean {
+  const ca = canonicalPath(a);
+  const cb = canonicalPath(b);
+  return ca === cb || ca.toLowerCase() === cb.toLowerCase();
+}
+
 /** Detect the repo and branch from the current working directory. */
 async function detectCwdContext(): Promise<CwdContext | null> {
   const repoRoot = gitCmd("rev-parse --show-toplevel");
@@ -107,7 +131,7 @@ async function detectCwdContext(): Promise<CwdContext | null> {
   const branch = gitCmd("branch --show-current");
   if (!branch) return null;
   const repos = await apiCall<Repo[]>("GET", "/api/repos");
-  const repo = repos.find((r) => r.abs_path === repoRoot);
+  const repo = repos.find((r) => samePath(r.abs_path, repoRoot));
   if (!repo) return null;
   return { repo, branch };
 }
@@ -183,10 +207,13 @@ async function cmdPrCreate(flags: Record<string, string | true>): Promise<void> 
   }
 
   if (!repo) {
-    if (!repoRef)
-      throw new Error(
-        "Not inside a tracked repo. Specify --repo <id|name>, or run from inside a tracked repo.",
-      );
+    if (!repoRef) {
+      const root = gitCmd("rev-parse --show-toplevel");
+      const hint = root
+        ? `This directory's git root is:\n  ${root}\nbut no tracked repo matches it. Run \`gitm repos\` to see tracked repos, or add its parent folder as a source directory.`
+        : "This directory isn't inside a git repository.";
+      throw new Error(`Not inside a tracked repo. ${hint}\nOr pass --repo <id|name> explicitly.`);
+    }
     repo = await resolveRepo(repoRef);
   }
   if (!head)
