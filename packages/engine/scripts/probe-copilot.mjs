@@ -102,6 +102,117 @@ function listDataFiles(dir, limit = 40) {
   return out.slice(0, limit);
 }
 
+const SCHEMA = process.argv.includes("--schema");
+
+function shape(v, depth = 0) {
+  if (v === null) return "null";
+  if (typeof v === "number" || typeof v === "boolean") return JSON.stringify(v);
+  if (typeof v === "string") {
+    if (
+      /^file:\/\//.test(v) ||
+      /^[a-z]:[\\/]/i.test(v) ||
+      /^\/(mnt|home|Users)/.test(v) ||
+      /^\d{4}-\d\dT/.test(v) ||
+      /^\d{10,13}$/.test(v) ||
+      /^[0-9a-f-]{8,40}$/i.test(v) ||
+      v.length <= 32
+    ) {
+      return JSON.stringify(v);
+    }
+    return `"<str:${v.length}>"`;
+  }
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "[]";
+    if (depth > 4) return `[${v.length}…]`;
+    return `[${v.length}] e.g. ${shape(v[0], depth + 1)}`;
+  }
+  if (typeof v === "object") {
+    if (depth > 4) return "{…}";
+    return `{ ${Object.entries(v).map(([k, val]) => `${k}: ${shape(val, depth + 1)}`).join(", ")} }`;
+  }
+  return typeof v;
+}
+
+function dumpCliSchema() {
+  for (const root of homeRoots()) {
+    const dir = path.join(root, ".copilot");
+    if (!exists(dir)) continue;
+    console.log(`\n===== SCHEMA: ${dir} =====`);
+
+    // Per-session metadata JSON
+    const ss = path.join(dir, "session-state");
+    let uuids = [];
+    try {
+      uuids = fs.readdirSync(ss, { withFileTypes: true }).filter((e) => e.isDirectory());
+    } catch {
+      uuids = [];
+    }
+    for (const u of uuids.slice(0, 5)) {
+      const meta = path.join(ss, u.name, "vscode.metadata.json");
+      try {
+        console.log(`  META ${u.name}: ${shape(JSON.parse(fs.readFileSync(meta, "utf8")))}`);
+      } catch {
+        // ignore
+      }
+    }
+
+    // session-store.db schema + one redacted sample row per table
+    const dbFile = path.join(dir, "session-store.db");
+    if (Database && exists(dbFile)) {
+      let db;
+      try {
+        db = new Database(dbFile, { readonly: true, fileMustExist: true });
+        const tables = db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+          .all()
+          .map((r) => r.name);
+        for (const t of tables) {
+          const cols = db.prepare(`PRAGMA table_info(${t})`).all().map((c) => c.name);
+          let count = 0;
+          try {
+            count = db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
+          } catch {
+            // ignore
+          }
+          console.log(`  TABLE ${t} (${count} rows): ${cols.join(", ")}`);
+          try {
+            const row = db.prepare(`SELECT * FROM ${t} LIMIT 1`).get();
+            if (row) {
+              const red = Object.fromEntries(
+                Object.entries(row).map(([k, val]) => [
+                  k,
+                  Buffer.isBuffer(val)
+                    ? `<blob:${val.length}>`
+                    : typeof val === "string"
+                      ? shape(val)
+                      : val,
+                ]),
+              );
+              console.log(`    sample: ${JSON.stringify(red)}`);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch (e) {
+        console.log(`  (could not open session-store.db: ${String(e)})`);
+      } finally {
+        try {
+          db?.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+}
+
+if (SCHEMA) {
+  dumpCliSchema();
+  console.log("\nDone (schema). Values are redacted; paste this back.");
+  process.exit(0);
+}
+
 console.log("===== Copilot CLI candidates =====");
 let foundCli = false;
 for (const root of homeRoots()) {
