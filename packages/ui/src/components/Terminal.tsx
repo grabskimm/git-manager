@@ -65,7 +65,7 @@ export function Terminal({ repoId }: Props) {
     ws.onclose = () => term.write("\r\n\x1b[2m[disconnected]\x1b[0m\r\n");
 
     // Keyboard input → PTY (binary frames for clean binary passthrough)
-    term.onData((data) => {
+    term.onData((data: string) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(new TextEncoder().encode(data));
       }
