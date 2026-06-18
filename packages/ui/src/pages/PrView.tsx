@@ -18,6 +18,8 @@ export function PrView() {
   const [commentFile, setCommentFile] = useState("");
   const [commentLine, setCommentLine] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
+  const [streamKind, setStreamKind] = useState<"review" | "reply">("review");
+  const [reply, setReply] = useState("");
   const streamRef = useRef("");
 
   // Changed files in the diff, offered as anchors for inline comments.
@@ -44,6 +46,19 @@ export function PrView() {
     setComment("");
     setCommentLine("");
   }, [comment, commentFile, commentLine, prId]);
+
+  const sendReply = useCallback(async () => {
+    const message = reply.trim();
+    if (!message) return;
+    setReply("");
+    setStreamKind("reply");
+    setError(null);
+    try {
+      await api.replyToReview(prId, message);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [reply, prId]);
 
   const load = useCallback(async () => {
     try {
@@ -116,6 +131,7 @@ export function PrView() {
   }
 
   const { pr, thread, repo } = detail;
+  const hasReview = thread.some((t) => t.author === "claude");
 
   return (
     <div className="page">
@@ -160,7 +176,13 @@ export function PrView() {
             Close
           </button>
         )}
-        <button disabled={busy !== null} onClick={() => act("review", () => api.rereview(pr.id))}>
+        <button
+          disabled={busy !== null}
+          onClick={() => {
+            setStreamKind("review");
+            void act("review", () => api.rereview(pr.id));
+          }}
+        >
           {busy === "review" ? "…" : "Re-run review"}
         </button>
       </div>
@@ -201,7 +223,7 @@ export function PrView() {
         {streaming !== null && (
           <div className="streaming">
             <div className="author-claude" style={{ marginBottom: 6 }}>
-              claude · reviewing…
+              claude · {streamKind === "reply" ? "replying" : "reviewing"}…
             </div>
             <pre className="cursor-blink">{streaming}</pre>
           </div>
@@ -211,6 +233,39 @@ export function PrView() {
           <div className="banner info">No activity yet.</div>
         )}
       </div>
+
+      {hasReview && (
+        <div className="card stack" style={{ marginTop: 12 }}>
+          <div className="row">
+            <span className="author-claude">Reply to Claude</span>
+            <span className="faint">
+              Ask a follow-up about the review — Claude answers with the diff and this thread as
+              context.
+            </span>
+          </div>
+          <textarea
+            placeholder="e.g. Why is that a problem? or: I disagree because…"
+            rows={2}
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && reply.trim()) {
+                e.preventDefault();
+                void sendReply();
+              }
+            }}
+          />
+          <div className="row">
+            <button
+              className="primary"
+              disabled={!reply.trim() || streaming !== null}
+              onClick={() => void sendReply()}
+            >
+              {streaming !== null && streamKind === "reply" ? "Claude is replying…" : "Send reply"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card stack" style={{ marginTop: 12 }}>
         <div className="row wrap">

@@ -12,7 +12,7 @@ import {
 import { branchExists, revParse } from "../git.js";
 import { attemptMerge, dryRunMerge } from "../merge.js";
 import { getConfig } from "../config.js";
-import { runReview } from "../review.js";
+import { runReview, runReviewReply } from "../review.js";
 
 export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get<{ Querystring: { repoId?: string } }>("/api/prs", async (req) =>
@@ -240,6 +240,35 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
     ctx.hub.broadcast("pr.updated", { prId: pr.id });
     return entry;
   });
+
+  app.post<{ Params: { id: string }; Body: { message?: string } }>(
+    "/api/prs/:id/reply",
+    async (req, reply) => {
+      const pr = getPr(ctx.db, req.params.id);
+      if (!pr) {
+        reply.code(404);
+        return { error: "pr_not_found" };
+      }
+      const repo = getRepo(ctx.db, pr.repo_id);
+      if (!repo) {
+        reply.code(404);
+        return { error: "repo_not_found" };
+      }
+      const message = req.body?.message?.trim();
+      if (!message) {
+        reply.code(400);
+        return { error: "message_required" };
+      }
+      // Persist the author's reply first so it shows immediately, then run
+      // Claude's response asynchronously (streams over review.* events).
+      addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
+      ctx.hub.broadcast("pr.updated", { prId: pr.id });
+      void runReviewReply(ctx.db, ctx.hub, repo, pr).then(() => {
+        ctx.hub.broadcast("pr.updated", { prId: pr.id });
+      });
+      return { ok: true, started: true };
+    },
+  );
 
   app.post<{ Params: { id: string } }>("/api/prs/:id/review", async (req, reply) => {
     const pr = getPr(ctx.db, req.params.id);

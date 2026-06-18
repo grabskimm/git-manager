@@ -109,6 +109,11 @@ export const api = {
   refreshPr: (id: string) => request<Pr>(`/api/prs/${id}/refresh`, { method: "POST" }),
   rereview: (id: string) =>
     request<{ ok: boolean }>(`/api/prs/${id}/review`, { method: "POST" }),
+  replyToReview: (id: string, message: string) =>
+    request<{ ok: boolean; started: boolean }>(`/api/prs/${id}/reply`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
   mergeability: (id: string) =>
     request<{ mergeable: "clean" | "conflict" | "error" }>(`/api/prs/${id}/mergeability`),
   comment: (id: string, body: string, anchor?: { file_path?: string; line?: number }) =>
