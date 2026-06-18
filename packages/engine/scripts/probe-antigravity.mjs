@@ -245,6 +245,128 @@ function dumpVscdb(file) {
   }
 }
 
+// ---- --decode: replicate the source's extraction to verify cwd binding ----
+const DECODE = process.argv.includes("--decode");
+
+function isPrintable(b) {
+  return b === 9 || b === 10 || b === 13 || (b >= 32 && b <= 126);
+}
+function byteScan(buf, out) {
+  let i = 0;
+  while (i < buf.length) {
+    if (!isPrintable(buf[i])) {
+      i++;
+      continue;
+    }
+    let j = i + 1;
+    while (j < buf.length && isPrintable(buf[j])) j++;
+    if (j - i >= 3) {
+      const s = buf.toString("utf8", i, j);
+      out.push(s);
+      if (s.length >= 20 && /^[A-Za-z0-9+/]+={0,2}$/.test(s)) {
+        try {
+          const d = Buffer.from(s, "base64");
+          if (d.length > 4) byteScan(d, out);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    i = j;
+  }
+}
+function decKnownFolders(root, sidebarB64) {
+  const set = new Set();
+  if (sidebarB64) {
+    const out = [];
+    try {
+      byteScan(Buffer.from(sidebarB64, "base64"), out);
+    } catch {
+      // ignore
+    }
+    for (const s of out) if (s.startsWith("file://")) set.add(s);
+  }
+  const wsRoot = path.join(root, "User", "workspaceStorage");
+  try {
+    for (const e of fs.readdirSync(wsRoot, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      try {
+        const m = JSON.parse(fs.readFileSync(path.join(wsRoot, e.name, "workspace.json"), "utf8"));
+        if (typeof m.folder === "string") set.add(m.folder);
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return [...set];
+}
+function normUri(u) {
+  let p = u;
+  if (p.startsWith("file://")) {
+    p = p.slice(7);
+    try {
+      p = decodeURIComponent(p);
+    } catch {
+      // ignore
+    }
+  }
+  p = p.replace(/\\/g, "/").replace(/^\/([a-zA-Z]:)/, "$1").toLowerCase();
+  const mnt = /^\/mnt\/([a-z])\/(.*)$/.exec(p);
+  if (mnt) p = `${mnt[1]}:/${mnt[2]}`;
+  return p.replace(/\/+$/, "");
+}
+function decodeAll() {
+  for (const root of roots) {
+    const dbFile = path.join(root, "User", "globalStorage", "state.vscdb");
+    if (!fs.existsSync(dbFile)) continue;
+    console.log(`\n========== DECODE: ${dbFile} ==========`);
+    let db;
+    try {
+      db = new Database(dbFile, { readonly: true, fileMustExist: true });
+    } catch (e) {
+      console.log(`  (open failed: ${e})`);
+      continue;
+    }
+    let trajB64 = null;
+    let sidebar = null;
+    try {
+      const g = db.prepare("SELECT value FROM ItemTable WHERE key = ?");
+      trajB64 = String(g.get("antigravityUnifiedStateSync.trajectorySummaries")?.value ?? "") || null;
+      sidebar = String(g.get("antigravityUnifiedStateSync.sidebarWorkspaces")?.value ?? "") || null;
+    } finally {
+      db.close();
+    }
+    const known = decKnownFolders(root, sidebar).map(normUri).filter((c) => c.length > 1);
+    console.log(`  known folders (canonical): ${JSON.stringify(known)}`);
+    if (!trajB64) {
+      console.log("  (no trajectorySummaries)");
+      continue;
+    }
+    const all = [];
+    byteScan(Buffer.from(trajB64, "base64"), all);
+    const uuids = all.filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s));
+    const paths = all.filter((s) => /:[\\/]|\/mnt\/|file:\/\//i.test(s));
+    console.log(`  trajectory UUIDs found: ${uuids.length}`);
+    for (const u of [...new Set(uuids)]) console.log(`    - ${u}`);
+    console.log(`  path-bearing strings (${paths.length}); matches:`);
+    for (const ps of [...new Set(paths)].slice(0, 20)) {
+      const cps = normUri(ps);
+      const hit = known
+        .sort((a, b) => b.length - a.length)
+        .find((k) => new RegExp(`(?<![a-z0-9._-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9._-])`).test(cps));
+      console.log(`    ${hit ? "✓ " + hit : "✗ no-match"}  «${ps.slice(0, 80)}»`);
+    }
+  }
+}
+
+if (DECODE) {
+  decodeAll();
+  console.log("\nDone (decode). Paths shown are matched against known workspace folders.");
+  process.exit(0);
+}
+
 for (const root of roots) {
   console.log(`\n========== ROOT: ${root} ==========`);
 

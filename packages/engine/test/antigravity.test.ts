@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseTrajectories, normalizeToPlatform } from "../src/agents/antigravity.js";
-import { collectScalars, topLevelEntries } from "../src/agents/protobuf.js";
+import { extractStrings, topLevelEntries } from "../src/agents/protobuf.js";
 
 // --- minimal protobuf encoders (test fixtures) ---
 function varint(n: number): Buffer {
@@ -29,13 +29,13 @@ function varField(field: number, n: number): Buffer {
 }
 
 describe("protobuf wire reader", () => {
-  it("decodes nested messages and base64-wrapped strings", () => {
+  it("recovers strings nested inside base64-wrapped blobs", () => {
     const inner = strField(1, "PS M:\\git\\tf-avd-module\\examples\\x");
     const nestedB64 = inner.toString("base64");
     const entry = Buffer.concat([strField(1, "abcdef01-2345-6789-abcd-ef0123456789"), strField(2, nestedB64)]);
-    const { strings } = collectScalars(entry);
+    const strings = extractStrings(entry);
     expect(strings).toContain("abcdef01-2345-6789-abcd-ef0123456789");
-    // the path was nested inside a base64-encoded protobuf string and recovered
+    // the path was nested inside a base64-encoded blob and recovered
     expect(strings.some((s) => s.includes("M:\\git\\tf-avd-module"))).toBe(true);
   });
 

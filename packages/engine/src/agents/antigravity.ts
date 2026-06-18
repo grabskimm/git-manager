@@ -10,7 +10,7 @@ import {
   NotSupported,
 } from "./source.js";
 import { deriveStatus } from "./transcript.js";
-import { collectScalars, topLevelEntries } from "./protobuf.js";
+import { collectVarints, extractStrings, topLevelEntries } from "./protobuf.js";
 
 const require = createRequire(import.meta.url);
 
@@ -150,7 +150,8 @@ export function parseTrajectories(
   const seen = new Set<string>();
 
   for (const entry of entries) {
-    const { strings, varints } = collectScalars(entry);
+    const strings = extractStrings(entry);
+    const varints = collectVarints(entry);
 
     const id = strings.find((s) => UUID_RE.test(s)) ?? "";
     if (!id || seen.has(id)) continue;
@@ -201,8 +202,9 @@ function knownFoldersForRoot(root: string, sidebarB64: string | null): string[] 
   const folders = new Set<string>();
   if (sidebarB64) {
     try {
-      const { strings } = collectScalars(Buffer.from(sidebarB64, "base64"));
-      for (const s of strings) if (s.startsWith("file://")) folders.add(s);
+      for (const s of extractStrings(Buffer.from(sidebarB64, "base64"))) {
+        if (s.startsWith("file://")) folders.add(s);
+      }
     } catch {
       // ignore
     }
