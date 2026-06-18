@@ -9,7 +9,8 @@
     "packages/ui"
   ],
   "bin": {
-    "gitmanager": "packages/engine/dist/cli.js"
+    "gitmanager": "packages/engine/dist/cli.js",
+    "gitm": "packages/engine/dist/cli.js"
   },
   "scripts": {
     "build": "npm run build --workspace packages/ui && npm run build --workspace packages/engine",

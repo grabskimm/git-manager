@@ -68,6 +68,26 @@ Then in the UI:
 
 To run the engine without opening a browser (e.g. headless): `npm start -- --no-open`.
 
+### Command line (`gitm`)
+
+The CLI is installed as both `gitmanager` and the short alias **`gitm`**. `gitm` with no
+arguments starts the engine; the subcommands talk to a running engine over loopback (reusing
+the local token + Origin automatically), so you can drive local PRs without the browser:
+
+```bash
+gitm                                   # start the engine + open the UI (alias of `gitm start`)
+gitm repos                             # list ingested repositories
+gitm pr create --repo <id|name> --base main --head feature --title "My change" [--description "…"]
+gitm pr list [--repo <id|name>]        # list pull requests
+gitm pr view <pr-id>                   # show a PR and its review thread
+gitm pr merge <pr-id>                  # merge (fast-forward / merge commit)
+gitm pr close <pr-id>                  # close a PR
+```
+
+`--repo` accepts a repo id, exact display name, or an unambiguous substring/prefix. Creating
+a PR triggers the automatic Claude review just like the UI. (Run `npm install -g .` or
+`npm link` to put `gitm` on your `PATH`; otherwise invoke `node packages/engine/dist/cli.js`.)
+
 ### UI features
 
 - **Dashboard home** — a friendly overview (open PRs, merged, agents running, recent PRs,

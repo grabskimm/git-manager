@@ -1,13 +1,219 @@
 import { spawn } from "node:child_process";
-import http from "node:http";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
+
+interface Pr {
+  id: string;
+  repo_id: string;
+  title: string;
+  base_ref: string;
+  head_ref: string;
+  status: string;
+  merge_commit_sha: string | null;
+}
+interface Repo {
+  id: string;
+  display_name: string;
+  default_branch: string | null;
+  abs_path: string;
+}
+
+function port(): number {
+  return process.env.GITMANAGER_PORT ? Number(process.env.GITMANAGER_PORT) : 4317;
+}
+function origin(): string {
+  return `http://127.0.0.1:${port()}`;
+}
+
+/** Call the running engine's API with the loopback token + Origin (§7). */
+async function apiCall<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const token = loadOrCreateToken();
+  let res: Response;
+  try {
+    res = await fetch(`${origin()}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Origin: origin(),
+        "Content-Type": "application/json",
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new Error(
+      `Could not reach the GitManager engine at ${origin()}. Start it first with \`gitm\` (or \`gitm start\`).`,
+    );
+  }
+  const text = await res.text();
+  const parsed = text ? JSON.parse(text) : null;
+  if (!res.ok) {
+    const msg =
+      (parsed && typeof parsed === "object" && "error" in parsed && String(parsed.error)) ||
+      `HTTP ${res.status}`;
+    const extra =
+      parsed && typeof parsed === "object" && "message" in parsed ? `: ${parsed.message}` : "";
+    throw new Error(`${msg}${extra}`);
+  }
+  return parsed as T;
+}
+
+/** Parse `--key value` / `--flag` pairs and positional args. */
+function parseFlags(args: string[]): { _: string[]; flags: Record<string, string | true> } {
+  const _: string[] = [];
+  const flags: Record<string, string | true> = {};
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a.startsWith("--")) {
+      const key = a.slice(2);
+      const next = args[i + 1];
+      if (next !== undefined && !next.startsWith("--")) {
+        flags[key] = next;
+        i++;
+      } else {
+        flags[key] = true;
+      }
+    } else {
+      _.push(a);
+    }
+  }
+  return { _, flags };
+}
+
+function str(v: string | true | undefined): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+
+/** Resolve a repo by exact id, exact display name, or unique prefix/substring. */
+async function resolveRepo(ref: string): Promise<Repo> {
+  const repos = await apiCall<Repo[]>("GET", "/api/repos");
+  const exact = repos.find((r) => r.id === ref || r.display_name === ref);
+  if (exact) return exact;
+  const matches = repos.filter(
+    (r) => r.id.startsWith(ref) || r.display_name.toLowerCase().includes(ref.toLowerCase()),
+  );
+  if (matches.length === 1) return matches[0];
+  if (matches.length === 0) throw new Error(`No repo matches "${ref}". Try \`gitm repos\`.`);
+  throw new Error(
+    `"${ref}" is ambiguous (${matches.map((m) => m.display_name).join(", ")}). Be more specific.`,
+  );
+}
+
+function pad(s: string, n: number): string {
+  return s.length >= n ? s : s + " ".repeat(n - s.length);
+}
+
+// ---- commands ----
+
+async function cmdRepos(): Promise<void> {
+  const repos = await apiCall<Repo[]>("GET", "/api/repos");
+  if (repos.length === 0) {
+    process.stdout.write("No repositories. Add a source directory in the UI or API first.\n");
+    return;
+  }
+  for (const r of repos) {
+    process.stdout.write(
+      `${pad(r.display_name, 28)} ${pad(r.default_branch ?? "-", 12)} ${r.id.slice(0, 16)}\n`,
+    );
+  }
+}
+
+async function cmdPrList(flags: Record<string, string | true>): Promise<void> {
+  const repoRef = str(flags.repo);
+  let path = "/api/prs";
+  if (repoRef) path += `?repoId=${encodeURIComponent((await resolveRepo(repoRef)).id)}`;
+  const prs = await apiCall<Pr[]>("GET", path);
+  if (prs.length === 0) {
+    process.stdout.write("No pull requests.\n");
+    return;
+  }
+  for (const p of prs) {
+    process.stdout.write(
+      `${pad(p.status, 11)} ${pad(p.head_ref + " -> " + p.base_ref, 28)} ${pad(p.title, 36)} ${p.id}\n`,
+    );
+  }
+}
+
+async function cmdPrCreate(flags: Record<string, string | true>): Promise<void> {
+  const repoRef = str(flags.repo);
+  const base = str(flags.base);
+  const head = str(flags.head);
+  const title = str(flags.title);
+  if (!repoRef || !base || !head || !title) {
+    throw new Error(
+      "Usage: gitm pr create --repo <id|name> --base <ref> --head <ref> --title <text> [--description <text>]",
+    );
+  }
+  const repo = await resolveRepo(repoRef);
+  const pr = await apiCall<Pr>("POST", "/api/prs", {
+    repo_id: repo.id,
+    base_ref: base,
+    head_ref: head,
+    title,
+    description: str(flags.description),
+  });
+  process.stdout.write(
+    `Opened PR ${pr.id}\n  ${pr.head_ref} -> ${pr.base_ref}  (${repo.display_name})\n  A Claude review is running; view it at ${origin()}/prs/${pr.id}\n`,
+  );
+}
+
+async function cmdPrMerge(id: string | undefined): Promise<void> {
+  if (!id) throw new Error("Usage: gitm pr merge <pr-id>");
+  const pr = await apiCall<Pr>("POST", `/api/prs/${id}/merge`);
+  if (pr.status === "merged") {
+    process.stdout.write(`Merged ${pr.id} as ${pr.merge_commit_sha}\n`);
+  } else {
+    process.stdout.write(`PR is now "${pr.status}".\n`);
+  }
+}
+
+async function cmdPrClose(id: string | undefined): Promise<void> {
+  if (!id) throw new Error("Usage: gitm pr close <pr-id>");
+  const pr = await apiCall<Pr>("POST", `/api/prs/${id}/close`);
+  process.stdout.write(`Closed ${pr.id} (status: ${pr.status})\n`);
+}
+
+interface PrDetail {
+  pr: Pr;
+  thread: { author: string; kind: string; body: string; file_path: string | null; line: number | null }[];
+  repo: Repo | undefined;
+}
+
+async function cmdPrView(id: string | undefined): Promise<void> {
+  if (!id) throw new Error("Usage: gitm pr view <pr-id>");
+  const d = await apiCall<PrDetail>("GET", `/api/prs/${id}`);
+  process.stdout.write(
+    `${d.pr.title}\n  ${d.pr.status} · ${d.pr.head_ref} -> ${d.pr.base_ref} · ${d.repo?.display_name ?? d.pr.repo_id}\n\n`,
+  );
+  for (const t of d.thread) {
+    const anchor = t.file_path ? ` [${t.file_path}${t.line ? ":" + t.line : ""}]` : "";
+    process.stdout.write(`--- ${t.author} (${t.kind})${anchor} ---\n${t.body}\n\n`);
+  }
+}
+
+async function cmdPr(args: string[]): Promise<void> {
+  const sub = args[0];
+  const rest = args.slice(1);
+  const { _, flags } = parseFlags(rest);
+  switch (sub) {
+    case "list":
+      return cmdPrList(flags);
+    case "create":
+      return cmdPrCreate(flags);
+    case "merge":
+      return cmdPrMerge(_[0]);
+    case "close":
+      return cmdPrClose(_[0]);
+    case "view":
+      return cmdPrView(_[0]);
+    default:
+      throw new Error("Usage: gitm pr <list|create|merge|close|view> …");
+  }
+}
 
 function openBrowser(url: string): void {
   if (process.env.GITMANAGER_NO_OPEN || process.argv.includes("--no-open")) return;
   const platform = process.platform;
-  const cmd =
-    platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+  const cmd = platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
   const args = platform === "win32" ? ["/c", "start", "", url] : [url];
   try {
     const child = spawn(cmd, args, { stdio: "ignore", detached: true });
@@ -18,73 +224,56 @@ function openBrowser(url: string): void {
   }
 }
 
-/** `gitmanager hook-event` — invoked by Claude Code hooks to nudge a refresh. */
-function hookEvent(): void {
-  const token = loadOrCreateToken();
-  const port = process.env.GITMANAGER_PORT ? Number(process.env.GITMANAGER_PORT) : 4317;
-  const req = http.request(
-    {
-      host: "127.0.0.1",
-      port,
-      path: "/api/agents/hook",
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Origin: `http://127.0.0.1:${port}`,
-        "Content-Type": "application/json",
-        "Content-Length": "2",
-      },
-    },
-    (res) => res.resume(),
-  );
-  req.on("error", () => {});
-  req.end("{}");
+/** Invoked by Claude Code hooks to nudge an agent refresh; fire-and-forget. */
+async function hookEvent(): Promise<void> {
+  try {
+    await apiCall("POST", "/api/agents/hook", {});
+  } catch {
+    // engine not running — nothing to nudge
+  }
 }
 
-async function main(): Promise<void> {
-  const cmd = process.argv[2];
+function help(): void {
+  process.stdout.write(
+    [
+      "gitm — local-first git UI with local PRs and AI review",
+      "",
+      "Usage:",
+      "  gitm [start]                         Start the engine and open the UI (default)",
+      "  gitm repos                           List ingested repositories",
+      "  gitm pr list [--repo <id|name>]      List pull requests",
+      "  gitm pr create --repo <id|name> --base <ref> --head <ref> --title <t> [--description <d>]",
+      "  gitm pr view <pr-id>                 Show a PR and its review thread",
+      "  gitm pr merge <pr-id>                Merge a PR (ff / merge-commit)",
+      "  gitm pr close <pr-id>                Close a PR",
+      "  gitm hook-event                      Internal: nudge agent refresh (used by hooks)",
+      "",
+      "Options:",
+      "  --no-open                            Do not open a browser (with start)",
+      "",
+      "Env:",
+      "  GITMANAGER_PORT   Engine port (default 4317)",
+      "  GITMANAGER_HOME   State dir (default ~/.gitmanager)",
+      "",
+      "Subcommands talk to a running engine over loopback using the local token.",
+      "",
+    ].join("\n"),
+  );
+}
 
-  if (cmd === "hook-event") {
-    hookEvent();
-    return;
-  }
-  if (cmd === "--help" || cmd === "-h") {
-    process.stdout.write(
-      [
-        "gitmanager — local-first git UI with local PRs and AI review",
-        "",
-        "Usage:",
-        "  gitmanager [start]        Start the engine and open the UI (default)",
-        "  gitmanager hook-event     Internal: nudge agent refresh (used by hooks)",
-        "",
-        "Options:",
-        "  --no-open                 Do not open a browser",
-        "",
-        "Env:",
-        "  GITMANAGER_PORT           Port to bind (default 4317)",
-        "  GITMANAGER_HOME           State dir (default ~/.gitmanager)",
-        "",
-      ].join("\n"),
-    );
-    return;
-  }
-
+async function startServer(): Promise<void> {
   const engine = await startEngine();
-  // Best-effort: register Claude Code hooks so observation has low latency.
-  engine.ctx.agents.installHooks("gitmanager hook-event");
-
+  engine.ctx.agents.installHooks("gitm hook-event");
   process.stdout.write(
     [
       "",
       "  GitManager engine running (loopback only)",
       `  ➜  ${engine.url}`,
-      `  Token stored at ~/.gitmanager/token (injected into the served UI)`,
+      "  Token stored at ~/.gitmanager/token (injected into the served UI)",
       "",
     ].join("\n") + "\n",
   );
-
   openBrowser(engine.url);
-
   const shutdown = async (): Promise<void> => {
     await engine.close();
     process.exit(0);
@@ -93,7 +282,32 @@ async function main(): Promise<void> {
   process.on("SIGTERM", shutdown);
 }
 
+async function main(): Promise<void> {
+  const [cmd, ...rest] = process.argv.slice(2);
+
+  switch (cmd) {
+    case undefined:
+    case "start":
+      return startServer();
+    case "hook-event":
+      await hookEvent();
+      return;
+    case "repos":
+      return cmdRepos();
+    case "pr":
+      return cmdPr(rest);
+    case "--help":
+    case "-h":
+    case "help":
+      return help();
+    default:
+      process.stderr.write(`Unknown command: ${cmd}\n\n`);
+      help();
+      process.exitCode = 1;
+  }
+}
+
 main().catch((err) => {
-  process.stderr.write(`Failed to start GitManager: ${(err as Error).message}\n`);
+  process.stderr.write(`${(err as Error).message}\n`);
   process.exit(1);
 });
