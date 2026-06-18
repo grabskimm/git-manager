@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { useApp } from "./state";
 import { api } from "./api";
-import { AgentPanel } from "./components/AgentPanel";
+import { RightSidebar } from "./components/RightSidebar";
 import { Home } from "./pages/Home";
 import { RepoView } from "./pages/RepoView";
 import { PrView } from "./pages/PrView";
@@ -182,7 +182,7 @@ export function App() {
         </Routes>
       </main>
 
-      <AgentPanel />
+      <RightSidebar />
     </div>
   );
 }

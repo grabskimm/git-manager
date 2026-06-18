@@ -11,7 +11,11 @@ export type WsEventType =
   | "pr.created"
   | "agent.updated"
   | "agents.refreshed"
-  | "repos.updated";
+  | "repos.updated"
+  | "chat.start"
+  | "chat.token"
+  | "chat.done"
+  | "chat.skipped";
 
 export interface WsEvent {
   type: WsEventType;

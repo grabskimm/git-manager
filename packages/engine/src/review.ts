@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { DB } from "./db.js";
@@ -6,11 +5,10 @@ import type { Pr, Repo } from "./types.js";
 import { diffRange, diffStat } from "./git.js";
 import { addThreadEntry } from "./store.js";
 import type { WsHub } from "./ws.js";
+import { isClaudeAvailable, runClaudeStreaming } from "./claudeProcess.js";
 
-/** Resolved at call time so tests and users can override the binary. */
-function claudeBin(): string {
-  return process.env.GITMANAGER_CLAUDE_BIN || "claude";
-}
+export { isClaudeAvailable };
+
 const PROMPT_FILE = ".gitmanager-review-prompt.md";
 
 const DEFAULT_PROMPT = `# GitManager — Code Review Prompt
@@ -47,21 +45,6 @@ export function loadReviewPrompt(repoPath: string): string {
   }
 }
 
-/** Is the `claude` CLI present and runnable? */
-export function isClaudeAvailable(): Promise<boolean> {
-  return new Promise((resolve) => {
-    let child;
-    try {
-      child = spawn(claudeBin(), ["--version"], { stdio: "ignore" });
-    } catch {
-      resolve(false);
-      return;
-    }
-    child.on("error", () => resolve(false));
-    child.on("close", (code) => resolve(code === 0));
-  });
-}
-
 export type ReviewResult =
   | { status: "reviewed"; body: string }
   | { status: "skipped"; reason: string };
@@ -79,12 +62,16 @@ export async function runReview(
 ): Promise<ReviewResult> {
   hub.broadcast("review.start", { prId: pr.id });
 
-  if (!(await isClaudeAvailable())) {
-    const reason =
-      "The `claude` CLI was not found. Install Claude Code and run `claude` once to log in, then re-open the PR to get an automatic review.";
+  const skip = (reason: string): ReviewResult => {
     persistSkip(db, pr, reason);
     hub.broadcast("review.skipped", { prId: pr.id, reason });
     return { status: "skipped", reason };
+  };
+
+  if (!(await isClaudeAvailable())) {
+    return skip(
+      "The `claude` CLI was not found. Install Claude Code and run `claude` once to log in, then re-open the PR to get an automatic review.",
+    );
   }
 
   let diff: string;
@@ -93,17 +80,11 @@ export async function runReview(
     diff = await diffRange(repo.abs_path, pr.base_ref, pr.head_ref);
     stat = await diffStat(repo.abs_path, pr.base_ref, pr.head_ref);
   } catch (err) {
-    const reason = `Could not compute the diff for review: ${(err as Error).message}`;
-    persistSkip(db, pr, reason);
-    hub.broadcast("review.skipped", { prId: pr.id, reason });
-    return { status: "skipped", reason };
+    return skip(`Could not compute the diff for review: ${(err as Error).message}`);
   }
 
   if (!diff.trim()) {
-    const reason = "No changes between base and head — nothing to review.";
-    persistSkip(db, pr, reason);
-    hub.broadcast("review.skipped", { prId: pr.id, reason });
-    return { status: "skipped", reason };
+    return skip("No changes between base and head — nothing to review.");
   }
 
   const template = loadReviewPrompt(repo.abs_path);
@@ -128,131 +109,17 @@ export async function runReview(
     .filter((l) => l !== "")
     .join("\n");
 
-  return new Promise<ReviewResult>((resolve) => {
-    let child;
-    try {
-      // Structured streaming output: works with a plain login and remains
-      // compatible with environments that inject `--include-partial-messages`.
-      child = spawn(
-        claudeBin(),
-        ["--print", "--verbose", "--output-format", "stream-json"],
-        { cwd: repo.abs_path, stdio: ["pipe", "pipe", "pipe"] },
-      );
-    } catch (err) {
-      const reason = `Failed to launch \`claude\`: ${(err as Error).message}`;
-      persistSkip(db, pr, reason);
-      hub.broadcast("review.skipped", { prId: pr.id, reason });
-      resolve({ status: "skipped", reason });
-      return;
-    }
-
-    let buffer = "";
-    let streamed = "";
-    let resultText = "";
-    let sawDelta = false;
-    let stderr = "";
-
-    const emit = (token: string): void => {
-      if (!token) return;
-      streamed += token;
-      hub.broadcast("review.token", { prId: pr.id, token });
-    };
-
-    const handleLine = (line: string): void => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
-      let obj: Record<string, unknown>;
-      try {
-        obj = JSON.parse(trimmed) as Record<string, unknown>;
-      } catch {
-        return; // non-JSON noise
-      }
-      const delta = extractDeltaText(obj);
-      if (delta !== null) {
-        sawDelta = true;
-        emit(delta);
-        return;
-      }
-      // Full assistant message (only stream it if we never saw deltas).
-      if (obj.type === "assistant" && !sawDelta) {
-        const text = extractAssistantText(obj);
-        if (text) emit(text);
-      }
-      if (obj.type === "result" && typeof obj.result === "string") {
-        resultText = obj.result;
-      }
-    };
-
-    child.stdout.on("data", (d: Buffer) => {
-      buffer += d.toString();
-      let nl: number;
-      while ((nl = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, nl);
-        buffer = buffer.slice(nl + 1);
-        handleLine(line);
-      }
-    });
-    child.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
-
-    child.on("error", (err) => {
-      const reason = `\`claude\` failed to run: ${err.message}`;
-      persistSkip(db, pr, reason);
-      hub.broadcast("review.skipped", { prId: pr.id, reason });
-      resolve({ status: "skipped", reason });
-    });
-
-    child.on("close", (code) => {
-      if (buffer.trim()) handleLine(buffer);
-      const body = (resultText || streamed).trim();
-      if (code !== 0 || !body) {
-        const reason =
-          stderr.trim() ||
-          `\`claude\` exited with code ${code}. You may need to log in (run \`claude\` once).`;
-        persistSkip(db, pr, reason);
-        hub.broadcast("review.skipped", { prId: pr.id, reason });
-        resolve({ status: "skipped", reason });
-        return;
-      }
-      addThreadEntry(db, { pr_id: pr.id, author: "claude", kind: "review", body });
-      hub.broadcast("review.done", { prId: pr.id });
-      resolve({ status: "reviewed", body });
-    });
-
-    child.stdin.write(fullPrompt);
-    child.stdin.end();
+  const result = await runClaudeStreaming({
+    cwd: repo.abs_path,
+    prompt: fullPrompt,
+    onToken: (token) => hub.broadcast("review.token", { prId: pr.id, token }),
   });
-}
 
-/** Pull incremental text from a stream-json partial-message event, if present. */
-function extractDeltaText(obj: Record<string, unknown>): string | null {
-  const event = obj.event as Record<string, unknown> | undefined;
-  const candidate = event ?? obj;
-  if (
-    candidate &&
-    candidate.type === "content_block_delta" &&
-    candidate.delta &&
-    typeof candidate.delta === "object"
-  ) {
-    const delta = candidate.delta as Record<string, unknown>;
-    if (delta.type === "text_delta" && typeof delta.text === "string") {
-      return delta.text;
-    }
-  }
-  return null;
-}
+  if (result.status === "skipped") return skip(result.reason);
 
-/** Concatenate text blocks from a complete assistant message. */
-function extractAssistantText(obj: Record<string, unknown>): string {
-  const message = obj.message as Record<string, unknown> | undefined;
-  const content = message?.content;
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter(
-      (p): p is { type: string; text: string } =>
-        !!p && typeof p === "object" && (p as { type?: string }).type === "text",
-    )
-    .map((p) => p.text)
-    .join("");
+  addThreadEntry(db, { pr_id: pr.id, author: "claude", kind: "review", body: result.body });
+  hub.broadcast("review.done", { prId: pr.id });
+  return { status: "reviewed", body: result.body };
 }
 
 function persistSkip(db: DB, pr: Pr, reason: string): void {

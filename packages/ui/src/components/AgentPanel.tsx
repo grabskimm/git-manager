@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../state";
 import { api } from "../api";
 
 export function AgentPanel() {
   const { agents, config, repos, reloadAgents, setConfig } = useApp();
-  const [collapsed, setCollapsed] = useState(false);
 
   // Poll as a fallback in case the file-watch stream misses an event.
   useEffect(() => {
@@ -13,16 +12,6 @@ export function AgentPanel() {
     const t = setInterval(() => void reloadAgents(), 5000);
     return () => clearInterval(t);
   }, [config?.agent_observe_enabled, reloadAgents]);
-
-  if (collapsed) {
-    return (
-      <aside className="agent-panel collapsed">
-        <button className="collapse-btn" onClick={() => setCollapsed(false)} title="Agents">
-          🤖
-        </button>
-      </aside>
-    );
-  }
 
   const repoName = (id: string | null) =>
     id ? repos.find((r) => r.id === id)?.display_name ?? id.slice(0, 12) : null;
@@ -42,12 +31,10 @@ export function AgentPanel() {
   }
 
   return (
-    <aside className="agent-panel">
+    <div className="agents-section">
       <div className="rail-header">
         <span className="brand">Agents</span>
-        <button onClick={() => setCollapsed(true)} title="Collapse">
-          →
-        </button>
+        <span className="faint" style={{ fontSize: 11 }}>observe-only</span>
       </div>
 
       {!enabled ? (
@@ -130,6 +117,6 @@ export function AgentPanel() {
           ))}
         </>
       )}
-    </aside>
+    </div>
   );
 }

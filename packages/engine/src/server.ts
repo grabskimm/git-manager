@@ -14,6 +14,7 @@ import { registerRepoRoutes } from "./routes/repos.js";
 import { registerPrRoutes } from "./routes/prs.js";
 import { registerConfigRoutes } from "./routes/config.js";
 import { registerAgentRoutes } from "./routes/agents.js";
+import { registerChatRoutes } from "./routes/chat.js";
 
 export interface EngineHandle {
   app: FastifyInstance;
@@ -103,6 +104,7 @@ export async function startEngine(
   registerPrRoutes(app, ctx);
   registerConfigRoutes(app, ctx);
   registerAgentRoutes(app, ctx);
+  registerChatRoutes(app, ctx);
 
   // Static UI on the same loopback origin.
   const uiDist = resolveUiDist();

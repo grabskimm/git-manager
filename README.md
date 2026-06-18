@@ -115,6 +115,10 @@ put `gitm` on your `PATH`; otherwise invoke `node packages/engine/dist/cli.js`.)
   and rendered **Markdown** (`marked` + DOMPurify), toggleable between rendered and source.
 - **Dark / light mode** — toggle in the rail header (☀/☾); preference persists and the diff
   viewer and code highlighting follow the theme.
+- **Repo chat** — a chat panel below the agents section talks to your authenticated `claude`
+  about **all** repositories in the source list (read-only cross-repo metadata: branches,
+  recent commits, paths). Responses stream over the WebSocket; degrades gracefully when
+  `claude` isn't installed.
 
 ### Development
 

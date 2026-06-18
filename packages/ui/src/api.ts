@@ -122,6 +122,13 @@ export const api = {
   setConfig: (patch: Partial<AppConfig>) =>
     request<AppConfig>("/api/config", { method: "PUT", body: JSON.stringify(patch) }),
 
+  // chat
+  chat: (message: string, history: { role: "user" | "assistant"; content: string }[]) =>
+    request<{ id: string }>("/api/chat", {
+      method: "POST",
+      body: JSON.stringify({ message, history }),
+    }),
+
   // agents
   agents: () => request<AgentsResponse>("/api/agents"),
   refreshAgents: () => request<{ sessions: unknown }>("/api/agents/refresh", { method: "POST" }),
