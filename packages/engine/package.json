@@ -8,8 +8,11 @@
     "gitmanager": "dist/cli.js",
     "gitm": "dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/copy-ui.mjs",
     "dev": "tsx watch src/cli.ts",
     "start": "node dist/cli.js",
     "typecheck": "tsc --noEmit",

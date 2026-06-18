@@ -26,7 +26,8 @@ function resolveUiDist(): string | null {
   if (process.env.GITMANAGER_UI_DIST) return process.env.GITMANAGER_UI_DIST;
   const here = path.dirname(fileURLToPath(import.meta.url));
   const candidates = [
-    path.resolve(here, "../../ui/dist"), // dist/ -> packages/ui/dist
+    path.resolve(here, "ui"), // bundled into dist/ui (global install)
+    path.resolve(here, "../../ui/dist"), // dist/ -> packages/ui/dist (dev)
     path.resolve(here, "../../../ui/dist"),
     path.resolve(here, "../ui/dist"),
   ];

@@ -52,6 +52,21 @@ npm run build          # builds the UI bundle, then the engine
 npm start              # starts the engine on 127.0.0.1:4317 and opens the browser
 ```
 
+### Install globally (`gitm` / `gitmanager` on your PATH)
+
+The build bundles the UI into the engine package, so a global install is self-contained.
+Build first, then install the **engine package** (the monorepo root has no runtime deps):
+
+```bash
+npm install
+npm run build
+npm install -g ./packages/engine     # adds `gitm` and `gitmanager` to your PATH
+gitm                                 # start the engine + open the UI from anywhere
+```
+
+After this, all the `gitm` commands below work from any directory. (To pick up later code
+changes, re-run `npm run build` and `npm install -g ./packages/engine`.)
+
 Then in the UI:
 
 1. **Settings → Add a source directory.** Enter a local path — Linux/macOS
@@ -89,8 +104,8 @@ gitm pr close <pr-id>                  # close a PR
 ```
 
 `--repo` accepts a repo id, exact display name, or an unambiguous substring/prefix. Creating
-a PR triggers the automatic Claude review just like the UI. (Run `npm install -g .` or
-`npm link` to put `gitm` on your `PATH`; otherwise invoke `node packages/engine/dist/cli.js`.)
+a PR triggers the automatic Claude review just like the UI. (See **Install globally** above to
+put `gitm` on your `PATH`; otherwise invoke `node packages/engine/dist/cli.js`.)
 
 ### UI features
 
