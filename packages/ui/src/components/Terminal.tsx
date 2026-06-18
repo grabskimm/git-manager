@@ -53,7 +53,9 @@ export function Terminal({ repoId }: Props) {
           if (msg.type === "exit") {
             term.write(`\r\n\x1b[2m[process exited with code ${msg.code ?? 0}]\x1b[0m\r\n`);
           } else if (msg.type === "error") {
-            term.write(`\r\n\x1b[31m[error: ${msg.message}]\x1b[0m\r\n`);
+            // Normalize newlines to CRLF so multi-line guidance renders right.
+            const text = String(msg.message ?? "").replace(/\r?\n/g, "\r\n");
+            term.write(`\r\n\x1b[31m${text}\x1b[0m\r\n`);
           }
         } catch {
           term.write(data as string);

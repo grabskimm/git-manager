@@ -1,10 +1,50 @@
 import { spawn as spawnPty } from "node-pty";
 import { WebSocket, WebSocketServer } from "ws";
+import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import type { Server } from "node:http";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { Database } from "better-sqlite3";
 import { safeEqual } from "./token.js";
+
+/** Pick the first shell that exists, honoring $SHELL first. */
+function resolveShell(): string {
+  if (process.platform === "win32") {
+    return process.env.COMSPEC || "cmd.exe";
+  }
+  const candidates = [
+    process.env.SHELL,
+    "/bin/zsh", // macOS default since Catalina
+    "/bin/bash",
+    "/bin/sh",
+  ].filter((s): s is string => !!s);
+  for (const c of candidates) {
+    if (existsSync(c)) return c;
+  }
+  return "/bin/sh";
+}
+
+/**
+ * node-pty fails with an opaque "posix_spawnp failed." when its native
+ * spawn-helper can't run — almost always because the native module was built
+ * for a different architecture/Node version than the one running the engine.
+ * Turn that into something the user can act on.
+ */
+function explainSpawnError(err: unknown, shell: string): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/posix_spawn|spawn-helper|dlopen|invalid ELF|symbol/i.test(raw)) {
+    return (
+      `Could not start a terminal (${raw.trim()}).\n\n` +
+      `This usually means node-pty's native module needs to be rebuilt for ` +
+      `this machine. From the GitManager folder run:\n` +
+      `  npm rebuild node-pty\n` +
+      `  npm run build && npm install -g ./packages/engine\n\n` +
+      `Tried shell: ${shell}`
+    );
+  }
+  return `Could not start a terminal: ${raw}`;
+}
 
 interface RepoRow {
   abs_path: string;
@@ -63,10 +103,12 @@ export class TerminalServer {
     });
   }
 
-  private attachPty(ws: WebSocket, cwd: string): void {
-    const shell =
-      process.env.SHELL ||
-      (process.platform === "win32" ? "cmd.exe" : "/bin/bash");
+  private attachPty(ws: WebSocket, repoPath: string): void {
+    // Resolve a working directory that actually exists (fall back to home).
+    let cwd = repoPath;
+    if (!existsSync(cwd)) cwd = homedir();
+
+    const shell = resolveShell();
 
     let pty: ReturnType<typeof spawnPty>;
     try {
@@ -78,7 +120,8 @@ export class TerminalServer {
         env: process.env as Record<string, string>,
       });
     } catch (err) {
-      ws.send(JSON.stringify({ type: "error", message: String(err) }));
+      // node-pty throws synchronously on a bad native build / spawn failure.
+      ws.send(JSON.stringify({ type: "error", message: explainSpawnError(err, shell) }));
       ws.close();
       return;
     }
