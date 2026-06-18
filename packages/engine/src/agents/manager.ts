@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { DB } from "../db.js";
 import { getConfig } from "../config.js";
 import { currentBranch, repoToplevel } from "../git.js";
@@ -8,6 +8,7 @@ import {
   findOpenPrByHead,
   getRepo,
   listSessions,
+  listSourceDirs,
   markStaleSessionsDone,
   upsertSession,
 } from "../store.js";
@@ -101,17 +102,29 @@ export class AgentManager {
     // The internal cwd used by GitManager's own `claude --print` subprocesses.
     // Sessions whose cwd matches this path are our own review/chat runs and
     // should never appear as user-facing agent sessions.
-    const internalCwd = join(
+    const internalCwd = resolve(
       process.env.GITMANAGER_HOME ?? join(homedir(), ".gitmanager"),
       ".internal",
     );
+
+    // Registered source directories are umbrella folders that *contain* repos,
+    // not repos themselves. A session sitting directly in one of them (e.g. the
+    // "GitHub" folder) is unbound noise — hide it.
+    const sourceDirs = new Set(
+      listSourceDirs(this.db).map((d) => resolve(d.path)),
+    );
+    const isHidden = (cwd: string | null): boolean => {
+      if (!cwd) return false;
+      const r = resolve(cwd);
+      return r === internalCwd || sourceDirs.has(r);
+    };
 
     const activeIds: string[] = [];
     for (const source of this.sources) {
       let sessions: AgentSession[] = [];
       try {
         sessions = (await source.discoverSessions()).filter(
-          (s) => s.cwd !== internalCwd,
+          (s) => !isHidden(s.cwd),
         );
       } catch {
         sessions = [];
