@@ -39,6 +39,17 @@ describe("protobuf wire reader", () => {
     expect(strings.some((s) => s.includes("M:\\git\\tf-avd-module"))).toBe(true);
   });
 
+  it("unwraps a path buried under a sub-message + base64 (the real shape)", () => {
+    // field 2 is a sub-message holding a string field whose value is base64 that
+    // decodes to protobuf containing the path — i.e. doubly nested with framing.
+    const inner = strField(1, "PS M:\\git\\tf-avd-module\\examples> terraform plan");
+    const wrapped = msgField(2, strField(1, inner.toString("base64")));
+    const entry = Buffer.concat([strField(1, "d06ab8f7-8db3-4d61-85c1-c6cb97f277ec"), wrapped]);
+    const strings = extractStrings(entry);
+    expect(strings).toContain("d06ab8f7-8db3-4d61-85c1-c6cb97f277ec");
+    expect(strings.some((s) => s.includes("M:\\git\\tf-avd-module"))).toBe(true);
+  });
+
   it("extracts top-level repeated field-1 entries", () => {
     const e1 = strField(1, "one");
     const e2 = strField(1, "two");

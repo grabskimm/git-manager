@@ -162,16 +162,49 @@ function byteScan(buf: Buffer, out: string[]): void {
   }
 }
 
+const B64_RUN = /[A-Za-z0-9+/]{20,}={0,2}/g;
+
 /**
- * Robustly extract strings from arbitrary (protobuf) bytes. Combines a tolerant
- * field-walk (clean base64 boundaries, handles Antigravity's nested blobs) with
- * a raw byte-scan, so paths survive even when the message can't be fully parsed.
+ * Robustly extract strings from arbitrary (protobuf) bytes. At each level it
+ * collects strings via a tolerant field-walk and a raw byte-scan, then finds any
+ * base64 substrings inside those strings, decodes them, and recurses — so values
+ * buried under one or more layers of base64 (as Antigravity nests them) surface
+ * regardless of the surrounding protobuf framing. Dedupes and depth-limits to
+ * stay bounded.
  */
+function unwrap(buf: Buffer, depth: number, out: Set<string>, seen: Set<string>): void {
+  if (depth > 8) return;
+  const level: string[] = [];
+  fieldWalk(buf, 0, level);
+  byteScan(buf, level);
+  for (const s of level) {
+    out.add(s);
+    const matches = s.match(B64_RUN);
+    if (!matches) continue;
+    for (const m of matches) {
+      // Try a few leading offsets: a stray non-aligned char (e.g. a protobuf
+      // length-prefix byte that happens to be a base64 char) can shift the run.
+      for (let k = 0; k < 4; k++) {
+        const sub = m.slice(k);
+        if (sub.length < 20) break;
+        const key = `${depth}:${sub.slice(0, 40)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        try {
+          const decoded = Buffer.from(sub, "base64");
+          if (decoded.length > 4) unwrap(decoded, depth + 1, out, seen);
+        } catch {
+          // not base64
+        }
+      }
+    }
+  }
+}
+
 export function extractStrings(buf: Buffer): string[] {
-  const out: string[] = [];
-  fieldWalk(buf, 0, out);
-  byteScan(buf, out);
-  return [...new Set(out)];
+  const out = new Set<string>();
+  unwrap(buf, 0, out, new Set());
+  return [...out];
 }
 
 /** Best-effort recursive collection of varints (e.g. timestamps). */

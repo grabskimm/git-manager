@@ -326,11 +326,37 @@ function byteScan(buf, out) {
     i = j;
   }
 }
+const B64_RUN = /[A-Za-z0-9+/]{20,}={0,2}/g;
+function unwrap(buf, depth, out, seen) {
+  if (depth > 8) return;
+  const level = [];
+  fieldWalk(buf, 0, level);
+  byteScan(buf, level);
+  for (const s of level) {
+    out.add(s);
+    const matches = s.match(B64_RUN);
+    if (!matches) continue;
+    for (const m of matches) {
+      for (let k = 0; k < 4; k++) {
+        const sub = m.slice(k);
+        if (sub.length < 20) break;
+        const key = `${depth}:${sub.slice(0, 40)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        try {
+          const d = Buffer.from(sub, "base64");
+          if (d.length > 4) unwrap(d, depth + 1, out, seen);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+}
 function extractStrings(buf) {
-  const out = [];
-  fieldWalk(buf, 0, out);
-  byteScan(buf, out);
-  return [...new Set(out)];
+  const out = new Set();
+  unwrap(buf, 0, out, new Set());
+  return [...out];
 }
 function decKnownFolders(root, sidebarB64) {
   const set = new Set();
