@@ -245,46 +245,103 @@ function dumpVscdb(file) {
   }
 }
 
-// ---- --decode: replicate the source's extraction to verify cwd binding ----
+// ---- --decode: faithful port of the source extractor, to verify cwd binding --
 const DECODE = process.argv.includes("--decode");
 
 function isPrintable(b) {
   return b === 9 || b === 10 || b === 13 || (b >= 32 && b <= 126);
 }
+function readVarint(buf, start) {
+  let result = 0n, shift = 0n, i = start;
+  while (i < buf.length) {
+    const byte = buf[i];
+    result |= BigInt(byte & 0x7f) << shift;
+    i++;
+    if ((byte & 0x80) === 0) return [result, i];
+    shift += 7n;
+    if (shift > 70n) break;
+  }
+  return [-1n, -1];
+}
+function decodeMessage(buf) {
+  const out = [];
+  let i = 0;
+  while (i < buf.length) {
+    const [key, n] = readVarint(buf, i);
+    if (n < 0) break;
+    i = n;
+    const field = Number(key >> 3n), wire = Number(key & 7n);
+    if (field <= 0) break;
+    if (wire === 0) { const [, n2] = readVarint(buf, i); if (n2 < 0) break; i = n2; }
+    else if (wire === 2) { const [len, n2] = readVarint(buf, i); if (n2 < 0) break; const L = Number(len); if (L < 0 || n2 + L > buf.length) break; out.push({ field, wire, value: buf.subarray(n2, n2 + L) }); i = n2 + L; }
+    else if (wire === 1) { if (i + 8 > buf.length) break; i += 8; }
+    else if (wire === 5) { if (i + 4 > buf.length) break; i += 4; }
+    else break;
+  }
+  return out;
+}
+function topLevelEntries(buf, field = 1) {
+  const out = [];
+  let i = 0;
+  while (i < buf.length) {
+    const [key, n1] = readVarint(buf, i);
+    if (n1 < 0) break;
+    const f = Number(key >> 3n), w = Number(key & 7n);
+    let j = n1;
+    if (w === 2) { const [len, n2] = readVarint(buf, j); if (n2 < 0) break; const L = Number(len); if (L < 0 || n2 + L > buf.length) break; if (f === field) out.push(buf.subarray(n2, n2 + L)); j = n2 + L; }
+    else if (w === 0) { const [, n2] = readVarint(buf, j); if (n2 < 0) break; j = n2; }
+    else if (w === 1) j += 8;
+    else if (w === 5) j += 4;
+    else break;
+    if (j <= i) break;
+    i = j;
+  }
+  return out;
+}
+function printableString(b) {
+  if (b.length === 0) return null;
+  let bad = 0;
+  for (const c of b) { if (c === 0) return null; if (!isPrintable(c) && c < 128) bad++; }
+  return bad / b.length > 0.1 ? null : b.toString("utf8");
+}
+function looksB64(s) { return s.length >= 20 && /^[A-Za-z0-9+/]+={0,2}$/.test(s); }
+function fieldWalk(buf, depth, out) {
+  if (depth > 8) return;
+  for (const f of decodeMessage(buf)) {
+    if (f.wire !== 2) continue;
+    const s = printableString(f.value);
+    if (s !== null) {
+      out.push(s);
+      if (looksB64(s)) { try { const d = Buffer.from(s, "base64"); if (d.length > 4) fieldWalk(d, depth + 1, out); } catch {} }
+    } else fieldWalk(f.value, depth + 1, out);
+  }
+}
 function byteScan(buf, out) {
   let i = 0;
   while (i < buf.length) {
-    if (!isPrintable(buf[i])) {
-      i++;
-      continue;
-    }
+    if (!isPrintable(buf[i])) { i++; continue; }
     let j = i + 1;
     while (j < buf.length && isPrintable(buf[j])) j++;
-    if (j - i >= 3) {
-      const s = buf.toString("utf8", i, j);
-      out.push(s);
-      if (s.length >= 20 && /^[A-Za-z0-9+/]+={0,2}$/.test(s)) {
-        try {
-          const d = Buffer.from(s, "base64");
-          if (d.length > 4) byteScan(d, out);
-        } catch {
-          // ignore
-        }
-      }
-    }
+    if (j - i >= 3) out.push(buf.toString("utf8", i, j));
     i = j;
   }
+}
+function extractStrings(buf) {
+  const out = [];
+  fieldWalk(buf, 0, out);
+  byteScan(buf, out);
+  return [...new Set(out)];
 }
 function decKnownFolders(root, sidebarB64) {
   const set = new Set();
   if (sidebarB64) {
-    const out = [];
     try {
-      byteScan(Buffer.from(sidebarB64, "base64"), out);
+      for (const s of extractStrings(Buffer.from(sidebarB64, "base64"))) {
+        if (s.startsWith("file://")) set.add(s);
+      }
     } catch {
       // ignore
     }
-    for (const s of out) if (s.startsWith("file://")) set.add(s);
   }
   const wsRoot = path.join(root, "User", "workspaceStorage");
   try {
@@ -338,26 +395,33 @@ function decodeAll() {
     } finally {
       db.close();
     }
-    const known = decKnownFolders(root, sidebar).map(normUri).filter((c) => c.length > 1);
-    console.log(`  known folders (canonical): ${JSON.stringify(known)}`);
+    const known = decKnownFolders(root, sidebar)
+      .map(normUri)
+      .filter((c) => c.length > 1)
+      .sort((a, b) => b.length - a.length);
+    console.log(`  known folders (canonical, specific first): ${JSON.stringify(known)}`);
     if (!trajB64) {
       console.log("  (no trajectorySummaries)");
       continue;
     }
-    const all = [];
-    byteScan(Buffer.from(trajB64, "base64"), all);
-    const uuids = all.filter((s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s));
-    const paths = all.filter((s) => /:[\\/]|\/mnt\/|file:\/\//i.test(s));
-    console.log(`  trajectory UUIDs found: ${uuids.length}`);
-    for (const u of [...new Set(uuids)]) console.log(`    - ${u}`);
-    console.log(`  path-bearing strings (${paths.length}); matches:`);
-    for (const ps of [...new Set(paths)].slice(0, 20)) {
-      const cps = normUri(ps);
-      const hit = known
-        .sort((a, b) => b.length - a.length)
-        .find((k) => new RegExp(`(?<![a-z0-9._-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9._-])`).test(cps));
-      console.log(`    ${hit ? "✓ " + hit : "✗ no-match"}  «${ps.slice(0, 80)}»`);
-    }
+    const buf = Buffer.from(trajB64, "base64");
+    const entries = topLevelEntries(buf);
+    console.log(`  trajectories (top-level entries): ${entries.length}`);
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    entries.forEach((entry, n) => {
+      const strings = extractStrings(entry);
+      const id = strings.find((s) => UUID.test(s)) ?? "(no uuid)";
+      const canonStrings = strings.map(normUri);
+      let cwd = "";
+      for (const k of known) {
+        const re = new RegExp(`(?<![a-z0-9._-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9._-])`);
+        if (canonStrings.some((cs) => re.test(cs))) { cwd = k; break; }
+      }
+      const sample = strings.filter((s) => /:[\\/]|\/mnt\/|file:\/\//i.test(s)).slice(0, 4);
+      console.log(`\n  [${n}] id=${id}`);
+      console.log(`      cwd match: ${cwd ? "✓ " + cwd : "✗ none"}`);
+      console.log(`      path strings: ${JSON.stringify(sample.map((s) => s.slice(0, 70)))}`);
+    });
   }
 }
 
