@@ -1,5 +1,6 @@
 import { spawn as spawnPty } from "node-pty";
 import { WebSocket, WebSocketServer } from "ws";
+import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { existsSync, chmodSync, statSync } from "node:fs";
 import { homedir } from "node:os";
@@ -31,8 +32,19 @@ function ensureSpawnHelperExecutable(): void {
     for (const helper of candidates) {
       if (!existsSync(helper)) continue;
       const mode = statSync(helper).mode;
-      // Add execute bits for user/group/other if any are missing.
+      // Add execute bits for user/group/other if any are missing. This is the
+      // common case: npm didn't preserve +x on the prebuilt spawn-helper.
       if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o755);
+      // On macOS, also clear any Gatekeeper quarantine that would block exec.
+      if (process.platform === "darwin") {
+        try {
+          execFileSync("xattr", ["-d", "com.apple.quarantine", helper], {
+            stdio: "ignore",
+          });
+        } catch {
+          // no quarantine attribute present — fine.
+        }
+      }
     }
   } catch {
     // node-pty layout differs or not resolvable — let the spawn surface it.
