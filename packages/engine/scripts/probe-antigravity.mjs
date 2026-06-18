@@ -83,6 +83,69 @@ if (roots.length === 0) {
 
 const KEY_HINT = /antigravity|cascade|chat|conversation|agent|session|composer|history|thread/i;
 
+// With --schema, print the redacted STRUCTURE of these keys (field names,
+// timestamps, ids, paths shown; long free-text replaced with <str:NN>).
+const SCHEMA = process.argv.includes("--schema");
+const SCHEMA_KEYS = new Set([
+  "antigravityUnifiedStateSync.trajectorySummaries",
+  "antigravityUnifiedStateSync.sidebarWorkspaces",
+  "antigravityUnifiedStateSync.agentPreferences",
+  "chat.ChatSessionStore.index",
+]);
+
+function shape(v, depth = 0) {
+  if (v === null) return "null";
+  if (typeof v === "number" || typeof v === "boolean") return JSON.stringify(v);
+  if (typeof v === "string") {
+    // Reveal structural strings (uris, ISO/epoch timestamps, ids, short tokens);
+    // redact long free text so prompts/titles don't leak.
+    if (
+      /^file:\/\//.test(v) ||
+      /^[a-z]:[\\/]/i.test(v) ||
+      /^\/(mnt|home|Users)/.test(v) ||
+      /^\d{4}-\d\dT/.test(v) ||
+      /^\d{10,13}$/.test(v) ||
+      /^[0-9a-f-]{8,40}$/i.test(v) ||
+      v.length <= 32
+    ) {
+      return JSON.stringify(v);
+    }
+    return `"<str:${v.length}>"`;
+  }
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "[]";
+    if (depth > 4) return `[${v.length}…]`;
+    return `[${v.length}] e.g. ${shape(v[0], depth + 1)}`;
+  }
+  if (typeof v === "object") {
+    if (depth > 4) return "{…}";
+    const parts = Object.entries(v).map(([k, val]) => `${k}: ${shape(val, depth + 1)}`);
+    return `{ ${parts.join(", ")} }`;
+  }
+  return typeof v;
+}
+
+function dumpSchema(db) {
+  for (const key of SCHEMA_KEYS) {
+    let row;
+    try {
+      row = db.prepare("SELECT value FROM ItemTable WHERE key = ?").get(key);
+    } catch {
+      continue;
+    }
+    if (!row) continue;
+    let parsed;
+    try {
+      const raw = Buffer.isBuffer(row.value) ? row.value.toString("utf8") : String(row.value);
+      parsed = JSON.parse(raw);
+    } catch {
+      console.log(`  SCHEMA ${key}: (not JSON)`);
+      continue;
+    }
+    console.log(`  SCHEMA ${key}:\n    ${shape(parsed)}`);
+  }
+}
+
 function dumpVscdb(file) {
   console.log(`\n--- state.vscdb: ${file} ---`);
   let db;
@@ -128,6 +191,7 @@ function dumpVscdb(file) {
         console.log(`    …and ${rows.length - 60} more`);
       }
     }
+    if (SCHEMA) dumpSchema(db);
   } finally {
     db.close();
   }
