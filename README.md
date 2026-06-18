@@ -54,9 +54,12 @@ npm start              # starts the engine on 127.0.0.1:4317 and opens the brows
 
 Then in the UI:
 
-1. **Settings → Add a source directory** (e.g. `/home/you/projects`). GitManager scans it
-   recursively and lists every repo it finds.
-2. Open a repo, pick a **base** and **head** branch, and **Open pull request**.
+1. **Settings → Add a source directory.** Enter a local path — Linux/macOS
+   (`/home/you/projects`, `~/code`) or Windows (`C:\Users\you\projects`) — **or** an
+   `https`/`git`/`ssh`/`file` URL to clone a repo locally. GitManager scans recursively and
+   lists every repo it finds.
+2. Open a repo to **browse its files** (syntax-highlighted code, rendered Markdown), or pick
+   a **base** and **head** branch and **Open pull request**.
 3. The PR opens and Claude automatically reviews the diff (streamed into the thread). If
    `claude` isn't installed/logged in, the review is skipped cleanly with guidance — the PR
    is never blocked.
@@ -64,6 +67,15 @@ Then in the UI:
    and **Re-check**.
 
 To run the engine without opening a browser (e.g. headless): `npm start -- --no-open`.
+
+### UI features
+
+- **Dashboard home** — a friendly overview (open PRs, merged, agents running, recent PRs,
+  quick jumps) instead of a bare repo list; repositories live in the left rail.
+- **Code browsing** — a file tree per branch with syntax-highlighted source (`highlight.js`)
+  and rendered **Markdown** (`marked` + DOMPurify), toggleable between rendered and source.
+- **Dark / light mode** — toggle in the rail header (☀/☾); preference persists and the diff
+  viewer and code highlighting follow the theme.
 
 ### Development
 
@@ -130,11 +142,18 @@ no extra config):
 
 ## Agent observe panel (opt-in)
 
-Enable it in Settings (or from the panel). GitManager then reads Claude Code session
+Enable it in Settings (or from the panel). GitManager then reads agent session
 **transcripts read-only** (the durable contract), discovers running sessions, and binds each
 to its repo (via the identity above, from the session's `cwd`), current branch, and a
-matching open PR. Live updates come from watching the transcript directory; a hook config is
-also merged into Claude Code's `settings.json` (best-effort) for lower latency.
+matching open PR. Sessions are grouped by provider in the panel. Live updates come from
+watching the transcript directories; for Claude Code a hook config is also merged into its
+`settings.json` (best-effort) for lower latency.
+
+**Multiple providers.** Beyond Claude Code, GitManager observes any tool that writes
+JSON/JSONL session transcripts. A tolerant parser (in `agents/transcript.ts`) locates the
+working directory across differing field names, so additional providers are just registry
+entries — **Codex**, **Antigravity**, and **Gemini CLI** are registered out of the box and
+fail soft when not installed (they contribute nothing). All remain observe-only.
 
 All agent data flows through a single `AgentSource` adapter (`packages/engine/src/agents`).
 The UI renders against each source's `capabilities`, so **control buttons simply don't
