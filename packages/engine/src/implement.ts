@@ -109,29 +109,34 @@ export async function runImplement(
 
     if (result.status === "skipped") return skip(result.reason);
 
-    // Stage everything and see whether Claude actually changed anything.
+    // Claude may have committed its own work, or left changes staged/unstaged.
+    // Stage anything pending and commit it; if nothing is pending the commit is
+    // skipped. Either way the final HEAD reflects all of Claude's work.
     await runGit(worktree, ["add", "-A"]);
     const status = await runGit(worktree, ["status", "--porcelain"]);
-    if (!status.stdout.trim()) {
+    if (status.stdout.trim()) {
+      const commit = await runGit(worktree, [
+        "-c",
+        "user.name=GitManager (Claude)",
+        "-c",
+        "user.email=claude@gitmanager.local",
+        "commit",
+        "-m",
+        "Apply Claude's review suggestions",
+      ]);
+      if (commit.code !== 0) {
+        return skip(`Could not commit the changes: ${commit.stderr.trim()}`);
+      }
+    }
+
+    const newSha = (await git(worktree, ["rev-parse", "HEAD"])).trim();
+
+    // If HEAD never moved, Claude made no code changes at all.
+    if (newSha === headSha) {
       addThreadEntry(db, { pr_id: pr.id, author: "claude", kind: "comment", body: result.body });
       hub.broadcast("review.done", { prId: pr.id });
       return { status: "no_changes", body: result.body };
     }
-
-    const commit = await runGit(worktree, [
-      "-c",
-      "user.name=GitManager (Claude)",
-      "-c",
-      "user.email=claude@gitmanager.local",
-      "commit",
-      "-m",
-      "Apply Claude's review suggestions",
-    ]);
-    if (commit.code !== 0) {
-      return skip(`Could not commit the changes: ${commit.stderr.trim()}`);
-    }
-
-    const newSha = (await git(worktree, ["rev-parse", "HEAD"])).trim();
 
     // Compare-and-swap the head branch to the new commit (head moved? abort).
     const update = await runGit(repo.abs_path, [
