@@ -112,6 +112,38 @@ const macApp = path.join(home, "Library", "Application Support");
 const appData = process.env.APPDATA || path.join(home, "AppData", "Roaming");
 const localAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local");
 
+/**
+ * When the engine runs under WSL, Windows app data is reachable via the mounted
+ * drives (/mnt/<drive>/Users/<user>/AppData/...). Enumerate those profiles so a
+ * Windows-installed agent is still observable from a Linux engine.
+ */
+function wslWindowsDirs(name: string): string[] {
+  if (process.platform !== "linux") return [];
+  const out: string[] = [];
+  let drives: string[];
+  try {
+    drives = fs.readdirSync("/mnt");
+  } catch {
+    return out;
+  }
+  for (const drive of drives) {
+    const usersDir = path.join("/mnt", drive, "Users");
+    let users: string[];
+    try {
+      users = fs.readdirSync(usersDir);
+    } catch {
+      continue;
+    }
+    for (const u of users) {
+      out.push(
+        path.join(usersDir, u, "AppData", "Roaming", name),
+        path.join(usersDir, u, "AppData", "Local", name),
+      );
+    }
+  }
+  return out;
+}
+
 /** Candidate userData dirs for an Electron/VS Code-fork app, all platforms. */
 function electronAppDirs(name: string): string[] {
   return [
@@ -122,6 +154,7 @@ function electronAppDirs(name: string): string[] {
     path.join(appData, name),
     path.join(localAppData, name),
     path.join(localAppData, name, "User"),
+    ...wslWindowsDirs(name),
   ];
 }
 

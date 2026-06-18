@@ -31,13 +31,43 @@ const localAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Loc
 const xdg = process.env.XDG_CONFIG_HOME || path.join(home, ".config");
 const macApp = path.join(home, "Library", "Application Support");
 
-// Candidate Antigravity userData roots across platforms.
+// When running under WSL, the Windows Antigravity data lives on the mounted
+// Windows drives (/mnt/c/Users/<user>/AppData/Roaming/Antigravity). Enumerate
+// every Windows user profile we can see.
+function wslWindowsRoots() {
+  const out = [];
+  let drives = [];
+  try {
+    drives = fs.readdirSync("/mnt");
+  } catch {
+    return out;
+  }
+  for (const drive of drives) {
+    const usersDir = path.join("/mnt", drive, "Users");
+    let users = [];
+    try {
+      users = fs.readdirSync(usersDir);
+    } catch {
+      continue;
+    }
+    for (const u of users) {
+      out.push(
+        path.join(usersDir, u, "AppData", "Roaming", "Antigravity"),
+        path.join(usersDir, u, "AppData", "Local", "Antigravity"),
+      );
+    }
+  }
+  return out;
+}
+
+// Candidate Antigravity userData roots across platforms (incl. WSL→Windows).
 const roots = [
   path.join(appData, "Antigravity"),
   path.join(localAppData, "Antigravity"),
   path.join(xdg, "Antigravity"),
   path.join(macApp, "Antigravity"),
   path.join(home, ".antigravity"),
+  ...wslWindowsRoots(),
 ].filter((d) => {
   try {
     return fs.existsSync(path.join(d, "User"));
