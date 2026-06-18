@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
 
@@ -83,6 +83,35 @@ function str(v: string | true | undefined): string | undefined {
   return typeof v === "string" ? v : undefined;
 }
 
+function gitCmd(args: string): string {
+  try {
+    return execSync(`git ${args}`, {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
+interface CwdContext {
+  repo: Repo;
+  branch: string;
+}
+
+/** Detect the repo and branch from the current working directory. */
+async function detectCwdContext(): Promise<CwdContext | null> {
+  const repoRoot = gitCmd("rev-parse --show-toplevel");
+  if (!repoRoot) return null;
+  const branch = gitCmd("branch --show-current");
+  if (!branch) return null;
+  const repos = await apiCall<Repo[]>("GET", "/api/repos");
+  const repo = repos.find((r) => r.abs_path === repoRoot);
+  if (!repo) return null;
+  return { repo, branch };
+}
+
 /** Resolve a repo by exact id, exact display name, or unique prefix/substring. */
 async function resolveRepo(ref: string): Promise<Repo> {
   const repos = await apiCall<Repo[]>("GET", "/api/repos");
@@ -135,15 +164,39 @@ async function cmdPrList(flags: Record<string, string | true>): Promise<void> {
 
 async function cmdPrCreate(flags: Record<string, string | true>): Promise<void> {
   const repoRef = str(flags.repo);
-  const base = str(flags.base);
-  const head = str(flags.head);
-  const title = str(flags.title);
-  if (!repoRef || !base || !head || !title) {
-    throw new Error(
-      "Usage: gitm pr create --repo <id|name> --base <ref> --head <ref> --title <text> [--description <text>]",
-    );
+  let base = str(flags.base);
+  let head = str(flags.head);
+  let title = str(flags.title);
+
+  let repo: Repo | undefined;
+
+  // Auto-detect from cwd when any of the key fields are missing.
+  if (!repoRef || !head || !base) {
+    const ctx = await detectCwdContext().catch(() => null);
+    if (ctx) {
+      if (!repo && !repoRef) repo = ctx.repo;
+      if (!head) head = ctx.branch;
+      if (!base) base = ctx.repo.default_branch ?? "main";
+      // Default title to the last commit subject on this branch.
+      if (!title) title = gitCmd("log -1 --pretty=%s") || head;
+    }
   }
-  const repo = await resolveRepo(repoRef);
+
+  if (!repo) {
+    if (!repoRef)
+      throw new Error(
+        "Not inside a tracked repo. Specify --repo <id|name>, or run from inside a tracked repo.",
+      );
+    repo = await resolveRepo(repoRef);
+  }
+  if (!head)
+    throw new Error("Not on a branch. Specify --head <ref>, or run from inside a tracked repo.");
+  if (!base) base = repo.default_branch ?? "main";
+  if (!title) title = head;
+
+  if (head === base)
+    throw new Error(`head and base are both "${head}". Nothing to merge.`);
+
   const pr = await apiCall<Pr>("POST", "/api/prs", {
     repo_id: repo.id,
     base_ref: base,
@@ -152,7 +205,7 @@ async function cmdPrCreate(flags: Record<string, string | true>): Promise<void> 
     description: str(flags.description),
   });
   process.stdout.write(
-    `Opened PR ${pr.id}\n  ${pr.head_ref} -> ${pr.base_ref}  (${repo.display_name})\n  A Claude review is running; view it at ${origin()}/prs/${pr.id}\n`,
+    `Opened PR ${pr.id}\n  ${pr.head_ref} -> ${pr.base_ref}  (${repo.display_name})\n  Title: ${pr.title}\n  A Claude review is running; view it at ${origin()}/prs/${pr.id}\n`,
   );
 }
 
@@ -300,7 +353,8 @@ function help(): void {
       "  gitm scan                            Re-scan all source directories",
       "  gitm repos                           List ingested repositories",
       "  gitm pr list [--repo <id|name>]      List pull requests",
-      "  gitm pr create --repo <id|name> --base <ref> --head <ref> --title <t> [--description <d>]",
+      "  gitm pr create [--repo <id|name>] [--base <ref>] [--head <ref>] [--title <t>] [--description <d>]",
+      "                                   (inside a tracked repo, all flags are optional)",
       "  gitm pr view <pr-id>                 Show a PR and its review thread",
       "  gitm pr merge <pr-id>                Merge a PR (ff / merge-commit)",
       "  gitm pr close <pr-id>                Close a PR",
