@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { DB } from "./db.js";
+import { debug } from "./logger.js";
 import type {
   AgentSessionRow,
   AgentStatus,
@@ -28,11 +29,13 @@ export function addSourceDir(db: DB, p: string): SourceDir {
   db.prepare(
     "INSERT INTO source_dirs (id, path, added_at) VALUES (@id, @path, @added_at)",
   ).run(row);
+  debug(`store: addSourceDir id=${row.id} path=${p}`);
   return row;
 }
 
 export function removeSourceDir(db: DB, id: string): void {
   db.prepare("DELETE FROM source_dirs WHERE id = ?").run(id);
+  debug(`store: removeSourceDir id=${id}`);
 }
 
 // ---- repos ----
@@ -68,11 +71,13 @@ export function upsertRepo(
              last_scanned_at = @ts
        WHERE id = @id`,
     ).run({ ...repo, ts: now() });
+    debug(`store: upsertRepo update id=${repo.id} name=${repo.display_name}`);
   } else {
     db.prepare(
       `INSERT INTO repos (id, display_name, abs_path, default_branch, added_at, last_scanned_at)
        VALUES (@id, @display_name, @abs_path, @default_branch, @ts, @ts)`,
     ).run({ ...repo, ts: now() });
+    debug(`store: upsertRepo insert id=${repo.id} name=${repo.display_name}`);
   }
   return getRepo(db, repo.id)!;
 }
@@ -133,12 +138,14 @@ export function createPr(
     `INSERT INTO prs (id, repo_id, title, description, base_ref, head_ref, status, merge_commit_sha, created_at, updated_at, merged_at, remote_url)
      VALUES (@id, @repo_id, @title, @description, @base_ref, @head_ref, @status, @merge_commit_sha, @created_at, @updated_at, @merged_at, @remote_url)`,
   ).run(row);
+  debug(`store: createPr id=${row.id} repo=${row.repo_id} ${row.head_ref}->${row.base_ref}`);
   return row;
 }
 
 /** Record the remote PR URL on a local PR after it's opened on the forge. */
 export function setPrRemoteUrl(db: DB, id: string, url: string): void {
   db.prepare("UPDATE prs SET remote_url=?, updated_at=? WHERE id=?").run(url, now(), id);
+  debug(`store: setPrRemoteUrl id=${id}`);
 }
 
 export function updatePr(
@@ -156,6 +163,7 @@ export function updatePr(
        merge_commit_sha=@merge_commit_sha, updated_at=@updated_at, merged_at=@merged_at
      WHERE id=@id`,
   ).run(next);
+  debug(`store: updatePr id=${id} status=${next.status}`);
   return next;
 }
 
@@ -192,6 +200,7 @@ export function addThreadEntry(
     `INSERT INTO pr_thread (id, pr_id, author, kind, body, file_path, line, created_at)
      VALUES (@id, @pr_id, @author, @kind, @body, @file_path, @line, @created_at)`,
   ).run(row);
+  debug(`store: addThreadEntry id=${row.id} pr=${row.pr_id} kind=${row.kind} author=${row.author}`);
   return row;
 }
 
@@ -213,6 +222,7 @@ export function upsertSession(db: DB, row: AgentSessionRow): void {
        raw_transcript_path=excluded.raw_transcript_path,
        started_at=excluded.started_at, last_event_at=excluded.last_event_at`,
   ).run(row);
+  debug(`store: upsertSession id=${row.id} status=${row.status} source=${row.source}`);
 }
 
 export function markStaleSessionsDone(
@@ -226,7 +236,10 @@ export function markStaleSessionsDone(
     "UPDATE agent_sessions SET status = ? WHERE id = ? AND status != 'done'",
   );
   for (const s of sessions) {
-    if (!active.has(s.id)) upd.run(status, s.id);
+    if (!active.has(s.id)) {
+      upd.run(status, s.id);
+      debug(`store: markStaleSessionsDone id=${s.id} → ${status}`);
+    }
   }
 }
 
