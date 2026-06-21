@@ -1,0 +1,28 @@
+{
+  "name": "gitmanager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first, GitHub-like UI over multiple local git repositories with local PRs and automatic AI review.",
+  "type": "module",
+  "workspaces": [
+    "packages/engine",
+    "packages/ui"
+  ],
+  "bin": {
+    "gitmanager": "packages/engine/dist/cli.js",
+    "gitm": "packages/engine/dist/cli.js"
+  },
+  "scripts": {
+    "build": "npm run build --workspace packages/ui && npm run build --workspace packages/engine",
+    "build:engine": "npm run build --workspace packages/engine",
+    "build:ui": "npm run build --workspace packages/ui",
+    "dev": "npm run dev --workspace packages/engine",
+    "dev:ui": "npm run dev --workspace packages/ui",
+    "start": "node packages/engine/dist/cli.js",
+    "test": "npm run test --workspace packages/engine",
+    "typecheck": "npm run typecheck --workspace packages/engine && npm run typecheck --workspace packages/ui"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
