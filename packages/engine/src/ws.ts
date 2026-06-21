@@ -55,11 +55,12 @@ export class WsHub {
       }
 
       // Token via subprotocol header or query param (browsers cannot set
-      // Authorization on WebSocket).
-      const provided =
-        url.searchParams.get("token") ??
-        (req.headers["sec-websocket-protocol"] as string | undefined)?.trim() ??
-        "";
+      // Authorization on WebSocket). `sec-websocket-protocol` is a
+      // comma-separated list of offered subprotocols — take the first value.
+      const subproto = (req.headers["sec-websocket-protocol"] as string | undefined)
+        ?.split(",")[0]
+        ?.trim();
+      const provided = url.searchParams.get("token") ?? subproto ?? "";
       if (!provided || !safeEqual(provided, this.token)) {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();

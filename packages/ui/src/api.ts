@@ -50,11 +50,24 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
     },
   });
   const text = await res.text();
-  const body = text ? JSON.parse(text) : null;
+  // The engine always speaks JSON, but a proxy or a Fastify HTML error page can
+  // slip through. Parse defensively so a non-JSON body surfaces the real HTTP
+  // status instead of masking it with a SyntaxError.
+  let body: unknown = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text;
+    }
+  }
   if (!res.ok) {
-    const msg =
-      (body && typeof body === "object" && "error" in body && String(body.error)) ||
-      `HTTP ${res.status}`;
+    let msg = `HTTP ${res.status}`;
+    if (body && typeof body === "object" && "error" in body) {
+      msg = String((body as { error: unknown }).error);
+    } else if (typeof body === "string" && body.trim()) {
+      msg = body.trim();
+    }
     throw new ApiError(msg, res.status, body);
   }
   return body as T;

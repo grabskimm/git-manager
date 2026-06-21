@@ -32,9 +32,10 @@ function ensureSpawnHelperExecutable(): void {
     for (const helper of candidates) {
       if (!existsSync(helper)) continue;
       const mode = statSync(helper).mode;
-      // Add execute bits for user/group/other if any are missing. This is the
-      // common case: npm didn't preserve +x on the prebuilt spawn-helper.
-      if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o755);
+      // Add execute bits for user/group/other if any are missing, without
+      // broadening read/write. This is the common case: npm didn't preserve +x
+      // on the prebuilt spawn-helper.
+      if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o111);
       // On macOS, also clear any Gatekeeper quarantine that would block exec.
       if (process.platform === "darwin") {
         try {

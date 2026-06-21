@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useApp } from "../state";
@@ -13,13 +13,24 @@ function greeting(): string {
 }
 
 export function Home() {
-  const { repos, sourceDirs, agents, userName } = useApp();
+  const { repos, sourceDirs, agents, userName, onWs } = useApp();
   const [prs, setPrs] = useState<Pr[]>([]);
   const firstName = userName && userName !== "you" ? userName.split(/\s+/)[0] : "";
 
-  useEffect(() => {
+  const reloadPrs = useCallback(() => {
     void api.listPrs().then(setPrs).catch(() => setPrs([]));
-  }, [repos.length]);
+  }, []);
+
+  useEffect(() => {
+    reloadPrs();
+  }, [repos.length, reloadPrs]);
+
+  // Keep "Recent pull requests" live as PRs are opened/updated/merged.
+  useEffect(() => {
+    return onWs((e) => {
+      if (e.type === "pr.created" || e.type === "pr.updated") reloadPrs();
+    });
+  }, [onWs, reloadPrs]);
 
   const openPrs = useMemo(
     () => prs.filter((p) => p.status === "open" || p.status === "conflicted"),

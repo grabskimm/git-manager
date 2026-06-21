@@ -100,7 +100,8 @@ export function FileBrowser({
       <div className="file-layout">
         <div className="file-tree">
           {dir && (
-            <div
+            <button
+              type="button"
               className="tree-row"
               onClick={() => {
                 const parent = crumbs.slice(0, -1).join("/");
@@ -109,19 +110,20 @@ export function FileBrowser({
               }}
             >
               <span className="ic">↩</span> ..
-            </div>
+            </button>
           )}
           {loading && <div className="tree-row faint">Loading…</div>}
           {!loading && entries.length === 0 && <div className="tree-row faint">Empty</div>}
           {entries.map((e) => (
-            <div
+            <button
+              type="button"
               key={e.path}
               className={`tree-row ${file?.path === e.path ? "active" : ""}`}
               onClick={() => openEntry(e)}
             >
               <span className="ic">{e.type === "tree" ? "▸" : "·"}</span>
               {e.name}
-            </div>
+            </button>
           ))}
         </div>
 
