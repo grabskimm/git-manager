@@ -54,7 +54,15 @@ export function registerSyncRoutes(app: FastifyInstance, ctx: AppContext): void 
     }
     const results = [];
     for (const repo of repos) {
-      results.push({ repo: repo.display_name, gmId: repo.id, results: await pushRepo(backends, repo) });
+      try {
+        results.push({ repo: repo.display_name, gmId: repo.id, results: await pushRepo(backends, repo) });
+      } catch (e) {
+        results.push({
+          repo: repo.display_name,
+          gmId: repo.id,
+          results: [{ backend: "(error)", status: "skipped", reason: (e as Error).message }],
+        });
+      }
     }
     return { pushed: results };
   });

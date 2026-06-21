@@ -91,13 +91,21 @@ async function pushRepoToBackend(
   return { backend: backend.label, status: "ok", bytes: bundle.length, snapshotKey: snapKey };
 }
 
-/** Back up one repo to every enabled backend. */
+/** Back up one repo to every enabled backend. Never throws. */
 export async function pushRepo(backends: BackendConfig[], repo: RepoLike): Promise<PushResult[]> {
   if (backends.length === 0) {
     return [{ backend: "(none)", status: "skipped", reason: "No storage backend is configured." }];
   }
-  const bundle = await createBundle(repo.abs_path);
-  const sha = await headSha(repo.abs_path);
+  let bundle: Buffer;
+  let sha: string | null;
+  try {
+    bundle = await createBundle(repo.abs_path);
+    sha = await headSha(repo.abs_path);
+  } catch (e) {
+    // e.g. an empty repo (no commits) — skip it without failing the batch.
+    const reason = `could not bundle ${repo.display_name}: ${(e as Error).message}`;
+    return backends.map((cfg) => ({ backend: cfg.id, status: "skipped" as const, reason }));
+  }
   const out: PushResult[] = [];
   for (const cfg of backends) {
     try {
