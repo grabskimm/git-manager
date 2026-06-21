@@ -1,6 +1,35 @@
 import type { StorageBackend } from "./backend.js";
 import { loadDep, MissingDepError } from "./optionalDep.js";
 
+/**
+ * A custom S3 `endpoint` is passed verbatim to the AWS SDK, which then sends
+ * SigV4-signed requests (bearing the user's credentials) to it. An attacker who
+ * can write the storage config could point it at the cloud instance-metadata
+ * service or another internal host to exfiltrate signed requests / probe the
+ * network (SSRF). Require an http(s) URL and block the well-known metadata and
+ * `.internal` hosts. Custom object stores (MinIO, R2, …) remain allowed.
+ */
+function assertSafeEndpoint(endpoint: string): void {
+  let u: URL;
+  try {
+    u = new URL(endpoint);
+  } catch {
+    throw new Error(`invalid S3 endpoint URL: ${endpoint}`);
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    throw new Error(`S3 endpoint must be http(s): ${endpoint}`);
+  }
+  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (
+    host === "169.254.169.254" ||
+    host === "metadata.google.internal" ||
+    host === "fd00:ec2::254" ||
+    host.endsWith(".internal")
+  ) {
+    throw new Error(`S3 endpoint host is not allowed (metadata/internal): ${host}`);
+  }
+}
+
 async function streamToBuffer(body: any): Promise<Buffer> {
   if (!body) return Buffer.alloc(0);
   if (typeof body.transformToByteArray === "function") {
@@ -26,6 +55,7 @@ export class S3Backend implements StorageBackend {
     private bucket: string,
     private opts: { region?: string; endpoint?: string } = {},
   ) {
+    if (opts.endpoint) assertSafeEndpoint(opts.endpoint);
     this.label = `S3 (${bucket}${opts.endpoint ? ` @ ${opts.endpoint}` : ""})`;
   }
 

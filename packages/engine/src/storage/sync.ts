@@ -13,6 +13,18 @@ import { log, debug } from "../logger.js";
 
 const MAX_SNAPSHOTS = 10;
 
+/**
+ * Reduce an untrusted name to a single, traversal-free path segment (or null if
+ * it can't be made safe). Used for restore destinations derived from a remote
+ * manifest. Preserves spaces/unicode; strips any directory components.
+ */
+function safeSegment(name: string | undefined | null): string | null {
+  if (!name) return null;
+  const base = path.basename(name.replace(/\\/g, "/"));
+  if (!base || base === "." || base === ".." || base.includes("/")) return null;
+  return base;
+}
+
 async function readJson<T>(backend: StorageBackend, key: string): Promise<T | null> {
   const buf = await backend.get(key);
   if (!buf) return null;
@@ -208,7 +220,16 @@ export async function pullRepo(
       const refs = await fetchFromBundle(opts.existingPath, bundle);
       return { status: "updated", refs, path: opts.existingPath };
     }
-    const target = path.join(opts.intoDir ?? process.cwd(), idx.name || gmId);
+    // The leaf comes from the remote manifest (`idx.name`); a tampered backup
+    // store could set it to `../…` to escape the chosen directory. Reduce it to
+    // a single path segment (falling back to the validated gmId) and assert the
+    // result stays within intoDir.
+    const leaf = safeSegment(idx.name) ?? gmId;
+    const baseDir = path.resolve(opts.intoDir ?? process.cwd());
+    const target = path.join(baseDir, leaf);
+    if (target !== baseDir && !target.startsWith(baseDir + path.sep)) {
+      return { status: "skipped", reason: "restore path escapes the target directory" };
+    }
     await cloneFromBundle(bundle, target);
     return { status: "cloned", path: target };
   }
