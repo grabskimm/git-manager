@@ -14,14 +14,29 @@ function timeoutSignal(): AbortSignal {
   return AbortSignal.timeout(OP_TIMEOUT_MS);
 }
 
-/** Wrap an Azure SDK error so a timeout reads clearly instead of "aborted". */
+/**
+ * Normalize an Azure SDK error. A real abort/timeout becomes a clear message;
+ * any other error (e.g. a 403 AuthorizationPermissionMismatch on blob write) is
+ * returned with its `code`/`statusCode` intact so callers can surface it.
+ */
 function azureError(e: unknown): Error {
-  const err = e as Error;
-  if (err?.name === "AbortError" || /aborted|timeout/i.test(err?.message ?? "")) {
+  const err = e as Error & { code?: string; statusCode?: number };
+  const isTimeout =
+    err?.name === "AbortError" ||
+    err?.name === "TimeoutError" ||
+    /\baborted\b|\btimeout\b/i.test(err?.message ?? "");
+  if (isTimeout) {
     return new Error(
       `Azure operation timed out after ${OP_TIMEOUT_MS}ms. Check network/credentials ` +
         `(\`az login\`) or raise GITMANAGER_AZURE_TIMEOUT_MS.`,
     );
+  }
+  // Make sure a data-plane permission error is unmistakable.
+  if (err?.statusCode === 403 || /AuthorizationPermissionMismatch/i.test(err?.message ?? "")) {
+    err.message =
+      `Azure denied the write (403). The signed-in identity can reach the container but ` +
+      `lacks data-plane write access — assign the "Storage Blob Data Contributor" role on ` +
+      `the storage account/container. (${err.message})`;
   }
   return err;
 }

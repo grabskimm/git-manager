@@ -121,7 +121,13 @@ export async function pushRepo(backends: BackendConfig[], repo: RepoLike): Promi
     try {
       out.push(await pushRepoToBackend(cfg, repo, bundle, sha));
     } catch (e) {
-      out.push({ backend: cfg.id, status: "skipped", reason: (e as Error).message });
+      // A backend op threw (e.g. an Azure 403 on blob write). Surface it loudly
+      // instead of silently recording a "skipped" — a swallowed error here is
+      // exactly what makes a backup look like it "succeeded" into an empty bucket.
+      const err = e as { code?: string; statusCode?: number; message?: string };
+      const reason = [err.code, err.statusCode, err.message].filter(Boolean).join(" ") || String(e);
+      log(`sync: ${repo.display_name} → ${cfg.id}: FAILED — ${reason}`);
+      out.push({ backend: cfg.id, status: "skipped", reason });
     }
   }
   return out;
