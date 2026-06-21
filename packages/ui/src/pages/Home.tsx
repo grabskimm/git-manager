@@ -13,8 +13,9 @@ function greeting(): string {
 }
 
 export function Home() {
-  const { repos, sourceDirs, agents } = useApp();
+  const { repos, sourceDirs, agents, userName } = useApp();
   const [prs, setPrs] = useState<Pr[]>([]);
+  const firstName = userName && userName !== "you" ? userName.split(/\s+/)[0] : "";
 
   useEffect(() => {
     void api.listPrs().then(setPrs).catch(() => setPrs([]));
@@ -63,7 +64,7 @@ export function Home() {
   return (
     <div className="page">
       <div className="hero">
-        <h1>{greeting()} 👋</h1>
+        <h1>{greeting()}{firstName ? `, ${firstName}` : ""} 👋</h1>
         <p className="subtle">
           Here's what's happening across your {repos.length} local repositor
           {repos.length === 1 ? "y" : "ies"}.

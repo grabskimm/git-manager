@@ -9,7 +9,7 @@ import type { DiffResponse, PrDetail } from "../types";
 
 export function PrView() {
   const { prId = "" } = useParams();
-  const { onWs, config } = useApp();
+  const { onWs, config, userName } = useApp();
   const [detail, setDetail] = useState<PrDetail | null>(null);
   const [diff, setDiff] = useState<DiffResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -217,7 +217,9 @@ export function PrView() {
         {thread.map((t) => (
           <div key={t.id} className="thread-entry">
             <div className="thread-head">
-              <span className={`author-${t.author}`}>{t.author}</span>
+              <span className={`author-${t.author}`}>
+                {t.author === "user" ? userName : t.author}
+              </span>
               <span className="faint">{t.kind.replace("_", " ")}</span>
               {t.file_path && (
                 <span className="ref mono" title="Inline comment">

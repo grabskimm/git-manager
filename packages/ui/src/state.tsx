@@ -19,6 +19,7 @@ interface AppState {
   sourceDirs: SourceDir[];
   config: AppConfig | null;
   agents: AgentsResponse | null;
+  userName: string;
   connected: boolean;
   error: string | null;
   theme: Theme;
@@ -38,6 +39,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sourceDirs, setSourceDirs] = useState<SourceDir[]>([]);
   const [config, setConfigState] = useState<AppConfig | null>(null);
   const [agents, setAgents] = useState<AgentsResponse | null>(null);
+  const [userName, setUserName] = useState<string>("you");
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(
@@ -86,6 +88,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         await api.ping();
         setConnected(true);
+        void api
+          .me()
+          .then((m) => m.name && setUserName(m.name))
+          .catch(() => {});
         await Promise.all([
           reloadRepos(),
           reloadSourceDirs(),
@@ -112,6 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sourceDirs,
       config,
       agents,
+      userName,
       connected,
       error,
       theme,
@@ -128,6 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sourceDirs,
       config,
       agents,
+      userName,
       connected,
       error,
       theme,

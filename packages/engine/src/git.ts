@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export interface GitResult {
@@ -63,6 +64,30 @@ export async function git(
     );
   }
   return res.stdout;
+}
+
+let cachedUserName: string | null | undefined;
+
+/**
+ * The user's display name: global `git config user.name`, falling back to the
+ * OS account name. Cached for the process lifetime. Null only if both are empty.
+ */
+export async function gitUserName(): Promise<string | null> {
+  if (cachedUserName !== undefined) return cachedUserName;
+  try {
+    const res = await runGit(os.homedir(), ["config", "user.name"]);
+    const name = res.stdout.trim();
+    if (res.code === 0 && name) return (cachedUserName = name);
+  } catch {
+    // fall through to the OS account name
+  }
+  try {
+    const u = os.userInfo().username?.trim();
+    if (u) return (cachedUserName = u);
+  } catch {
+    // ignore
+  }
+  return (cachedUserName = null);
 }
 
 export async function isGitRepo(dir: string): Promise<boolean> {

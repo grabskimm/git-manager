@@ -21,7 +21,7 @@ const MODELS: { value: string; label: string }[] = [
 ];
 
 export function ChatPanel({ minimized, onToggleMinimize }: Props) {
-  const { onWs, repos } = useApp();
+  const { onWs, repos, userName } = useApp();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
@@ -155,7 +155,7 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
         )}
         {messages.map((m, i) => (
           <div key={i} className={`chat-msg ${m.role}`}>
-            <div className="chat-role">{m.role === "user" ? "you" : "claude"}</div>
+            <div className="chat-role">{m.role === "user" ? userName : "claude"}</div>
             {m.role === "assistant" ? (
               <Markdown source={m.content} />
             ) : (

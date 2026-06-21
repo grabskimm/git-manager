@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { openDb } from "./db.js";
+import { gitUserName } from "./git.js";
 import { loadOrCreateToken } from "./token.js";
 import { buildAllowedOrigins, registerSecurity } from "./security.js";
 import { WsHub } from "./ws.js";
@@ -103,6 +104,9 @@ export async function startEngine(
 
   // Health check (still behind auth + Origin).
   app.get("/api/ping", async () => ({ ok: true, version: "1.0.0" }));
+
+  // Current user's display name (git config user.name, else OS account).
+  app.get("/api/me", async () => ({ name: await gitUserName() }));
 
   registerSourceRoutes(app, ctx);
   registerRepoRoutes(app, ctx);

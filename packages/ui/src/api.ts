@@ -62,6 +62,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
 
 export const api = {
   ping: () => request<{ ok: boolean; version: string }>("/api/ping"),
+  me: () => request<{ name: string | null }>("/api/me"),
 
   // source dirs
   listSourceDirs: () => request<SourceDir[]>("/api/source-dirs"),
