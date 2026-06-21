@@ -105,13 +105,17 @@ function backendsFromForm(form: FormState): { backends: Record<string, unknown>[
 }
 
 export function BackupSettings() {
-  const { config, setConfig } = useApp();
+  const { config, setConfig, repos, reloadRepos } = useApp();
   const [form, setForm] = useState<FormState>(emptyForm());
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pushed, setPushed] = useState<SyncPushRepo[] | null>(null);
+  const [showRestore, setShowRestore] = useState(false);
+  const [intoDir, setIntoDir] = useState("~/repos");
+  const [restoring, setRestoring] = useState<Record<string, boolean>>({});
+  const [restoreStatus, setRestoreStatus] = useState<Record<string, { ok: boolean; msg: string }>>({});
 
   const reload = useCallback(async () => {
     try {
@@ -178,6 +182,28 @@ export function BackupSettings() {
       setErr((e as Error).message);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const restore = async (gmId: string) => {
+    setRestoring((r) => ({ ...r, [gmId]: true }));
+    setRestoreStatus((r) => {
+      const next = { ...r };
+      delete next[gmId];
+      return next;
+    });
+    try {
+      const res = await api.syncPull(gmId, intoDir || undefined);
+      const ok = res.status === "cloned" || res.status === "updated";
+      setRestoreStatus((r) => ({
+        ...r,
+        [gmId]: { ok, msg: ok ? `${res.status} → ${res.path ?? ""}` : (res.reason ?? "failed") },
+      }));
+      if (ok) await reloadRepos();
+    } catch (e) {
+      setRestoreStatus((r) => ({ ...r, [gmId]: { ok: false, msg: (e as Error).message } }));
+    } finally {
+      setRestoring((r) => ({ ...r, [gmId]: false }));
     }
   };
 
@@ -279,7 +305,10 @@ export function BackupSettings() {
           Save destinations
         </button>
         <button onClick={pushNow} disabled={busy}>
-          {busy ? "Backing up…" : "Back up all now"}
+          {busy ? "Backing up…" : "⤴ Back up all now"}
+        </button>
+        <button onClick={() => setShowRestore((s) => !s)} disabled={busy}>
+          ⤵ Sync from backup
         </button>
         <button onClick={() => void reload()} disabled={busy}>
           Refresh status
@@ -287,6 +316,73 @@ export function BackupSettings() {
       </div>
       {msg && <div className="banner info" style={{ marginTop: 8 }}>{msg}</div>}
       {err && <div className="banner error" style={{ marginTop: 8 }}>{err}</div>}
+
+      {showRestore && (
+        <div className="card" style={{ marginTop: 12, padding: 12 }}>
+          <h3 style={{ fontSize: 14, margin: "0 0 10px" }}>Restore from backup</h3>
+          {!status?.manifest ? (
+            <div className="faint" style={{ fontSize: 13 }}>
+              No backup manifest found — run a backup first to create one.
+            </div>
+          ) : (
+            <>
+              <div className="row" style={{ gap: 8, marginBottom: 12, alignItems: "center" }}>
+                <span className="faint" style={{ fontSize: 13, flexShrink: 0 }}>Restore into</span>
+                <input
+                  value={intoDir}
+                  onChange={(e) => setIntoDir(e.target.value)}
+                  placeholder="~/repos"
+                  style={{ flex: 1 }}
+                />
+                <span className="faint" style={{ fontSize: 12, flexShrink: 0 }}>
+                  repos cloned inside this folder
+                </span>
+              </div>
+              <div className="stack">
+                {Object.entries(status.manifest.repos).map(([gmId, info]) => {
+                  const local = repos.find((r) => r.id === gmId);
+                  const rs = restoreStatus[gmId];
+                  const isRestoring = restoring[gmId];
+                  return (
+                    <div
+                      key={gmId}
+                      className="row"
+                      style={{ gap: 8, alignItems: "center", padding: "6px 0", borderBottom: "1px solid var(--border)" }}
+                    >
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <strong>{info.name}</strong>
+                        <span className="faint" style={{ fontSize: 12, marginLeft: 6 }}>
+                          {relTime(info.lastBackupAt) ?? "—"} · {((info.bytes ?? 0) / 1024).toFixed(0)} KiB
+                        </span>
+                        {local && (
+                          <span
+                            className="ref"
+                            style={{ marginLeft: 6, fontSize: 11, color: "var(--green)", borderColor: "var(--green)" }}
+                          >
+                            tracked
+                          </span>
+                        )}
+                      </span>
+                      {rs && (
+                        <span style={{ fontSize: 12, color: rs.ok ? "var(--green)" : "var(--red)", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {rs.ok ? `✓ ${rs.msg}` : `✗ ${rs.msg}`}
+                        </span>
+                      )}
+                      <button
+                        disabled={isRestoring || busy}
+                        onClick={() => void restore(gmId)}
+                        style={{ flexShrink: 0 }}
+                      >
+                        {isRestoring ? "Restoring…" : local ? "Fetch updates" : "Restore"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <hr className="sep" />
       <h3 style={{ fontSize: 14, margin: "8px 0" }}>Schedule</h3>

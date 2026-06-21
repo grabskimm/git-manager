@@ -1,11 +1,21 @@
+import path from "node:path";
+import os from "node:os";
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
 import { getConfig } from "../config.js";
-import { getRepo, listRepos } from "../store.js";
+import { addSourceDir, getRepo, listRepos, listSourceDirs } from "../store.js";
+import { scanAll } from "../scan.js";
 import { loadStorageConfig, saveStorageConfig, enabledBackends } from "../storage/config.js";
 import { backendFromConfig } from "../storage/index.js";
 import { pushRepo, pullRepo, readManifest, type RepoLike } from "../storage/sync.js";
 import type { StorageConfig } from "../storage/backend.js";
+
+function expandHome(p: string): string {
+  const t = p.trim();
+  if (t === "~") return os.homedir();
+  if (t.startsWith("~/") || t.startsWith("~\\")) return path.join(os.homedir(), t.slice(2));
+  return path.resolve(t);
+}
 
 export function registerSyncRoutes(app: FastifyInstance, ctx: AppContext): void {
   // Current storage config (no secrets — creds come from provider auth).
@@ -68,7 +78,8 @@ export function registerSyncRoutes(app: FastifyInstance, ctx: AppContext): void 
   });
 
   // Restore a repo. If it's already tracked locally → non-destructive fetch.
-  // Otherwise clone into `into` (a directory) from the latest snapshot.
+  // Otherwise clone into `into` (a directory) from the latest snapshot, then
+  // auto-register that directory as a source so the repo appears immediately.
   app.post<{ Body: { gmId?: string; into?: string } }>("/api/sync/pull", async (req, reply) => {
     const gmId = req.body?.gmId;
     if (!gmId) {
@@ -77,10 +88,18 @@ export function registerSyncRoutes(app: FastifyInstance, ctx: AppContext): void 
     }
     const backends = enabledBackends(loadStorageConfig());
     const existing = getRepo(ctx.db, gmId);
+    const intoDir = req.body?.into ? expandHome(req.body.into) : undefined;
     const result = await pullRepo(backends, gmId, {
       existingPath: existing?.abs_path,
-      intoDir: req.body?.into,
+      intoDir,
     });
+    if (result.status === "cloned" && result.path) {
+      const parentDir = path.dirname(result.path);
+      const alreadySource = listSourceDirs(ctx.db).some((d) => d.path === parentDir);
+      if (!alreadySource) addSourceDir(ctx.db, parentDir);
+      await scanAll(ctx.db);
+      ctx.hub.broadcast("repos.updated", { repos: listRepos(ctx.db).length });
+    }
     return result;
   });
 }
