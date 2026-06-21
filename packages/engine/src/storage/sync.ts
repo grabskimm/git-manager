@@ -145,6 +145,35 @@ export async function readManifest(
   return null;
 }
 
+export interface Readiness {
+  id: string;
+  label: string;
+  enabled: boolean;
+  ready: { ok: true } | { ok: false; reason: string };
+}
+
+/**
+ * Readiness of one backend. Reachable isn't the same as writable — a read-only
+ * check (HeadBucket / createIfNotExists) passes even when the identity can't
+ * write, silently producing empty backups. When `probeWrite` is set we confirm
+ * a real write/delete round-trip under the configured prefix, reusing the
+ * backend instance so it shares any timeout/error handling.
+ */
+export async function backendReadiness(cfg: BackendConfig, probeWrite = true): Promise<Readiness> {
+  const backend = backendFromConfig(cfg);
+  let ready = await backend.isReady();
+  if (ready.ok && probeWrite) {
+    const probe = layout.writeProbe(prefixOf(cfg));
+    try {
+      await backend.put(probe, Buffer.from("gitm-write-probe"));
+      await backend.del(probe).catch(() => {});
+    } catch (e) {
+      ready = { ok: false, reason: `reachable but write failed: ${(e as Error).message}` };
+    }
+  }
+  return { id: cfg.id, label: backend.label, enabled: cfg.enabled, ready };
+}
+
 export interface PullResult {
   status: "cloned" | "updated" | "skipped";
   reason?: string;

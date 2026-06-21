@@ -5,7 +5,13 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { runGit } from "../src/git.js";
 import { FsBackend } from "../src/storage/fsBackend.js";
-import { pushRepo, pullRepo, readManifest, type RepoLike } from "../src/storage/sync.js";
+import {
+  pushRepo,
+  pullRepo,
+  readManifest,
+  backendReadiness,
+  type RepoLike,
+} from "../src/storage/sync.js";
 import type { BackendConfig } from "../src/storage/backend.js";
 
 let tmp: string;
@@ -92,5 +98,46 @@ describe("storage sync (filesystem backend round-trip)", () => {
     const repo: RepoLike = { id: "x", display_name: "x", abs_path: tmp, default_branch: null };
     const res = await pushRepo([], repo);
     expect(res[0].status).toBe("skipped");
+  });
+});
+
+describe("backendReadiness (verifies write access, not just reachability)", () => {
+  it("is ready when the backend can be written to", async () => {
+    const cfg: BackendConfig = {
+      id: "fs",
+      enabled: true,
+      dir: path.join(tmp, "ok-bucket"),
+      prefix: "gitmanager",
+    };
+    const r = await backendReadiness(cfg);
+    expect(r.ready.ok).toBe(true);
+    // The probe object must be cleaned up — no residue left behind.
+    expect(fs.existsSync(path.join(tmp, "ok-bucket", "gitmanager", ".gitm-write-probe"))).toBe(false);
+  });
+
+  it("reports not-ready when reachable but the write fails", async () => {
+    // Base dir is writable (isReady passes), but the prefix path is a *file*,
+    // so writing the probe under it fails — mirroring an S3/Azure identity that
+    // can reach the bucket but lacks write permission.
+    const base = path.join(tmp, "ro-bucket");
+    fs.mkdirSync(base, { recursive: true });
+    fs.writeFileSync(path.join(base, "gitmanager"), "i am a file, not a dir");
+
+    const cfg: BackendConfig = { id: "fs", enabled: true, dir: base, prefix: "gitmanager" };
+    const r = await backendReadiness(cfg);
+    expect(r.ready.ok).toBe(false);
+    if (!r.ready.ok) expect(r.ready.reason).toMatch(/reachable but write failed/);
+  });
+
+  it("skips the write probe when probeWrite is false (disabled backend)", async () => {
+    const base = path.join(tmp, "disabled-bucket");
+    fs.mkdirSync(base, { recursive: true });
+    fs.writeFileSync(path.join(base, "gitmanager"), "blocks writes");
+
+    const cfg: BackendConfig = { id: "fs", enabled: false, dir: base, prefix: "gitmanager" };
+    // Without a write probe, a reachable backend reports ready even though a
+    // real write would fail — that's the intended trade-off for disabled ones.
+    const r = await backendReadiness(cfg, false);
+    expect(r.ready.ok).toBe(true);
   });
 });
