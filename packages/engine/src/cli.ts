@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
+import { setVerbose } from "./logger.js";
 
 interface Pr {
   id: string;
@@ -486,6 +487,7 @@ function help(): void {
       "",
       "Options:",
       "  --no-open                            Do not open a browser (with start)",
+      "  --verbose                            Enable verbose logging to stderr",
       "",
       "Env:",
       "  GITMANAGER_PORT   Engine port (default 4317)",
@@ -533,7 +535,11 @@ async function startServer(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const [cmd, ...rest] = process.argv.slice(2);
+  const allArgs = process.argv.slice(2).filter((a) => {
+    if (a === "--verbose") { setVerbose(true); return false; }
+    return true;
+  });
+  const [cmd, ...rest] = allArgs;
 
   switch (cmd) {
     case undefined:

@@ -19,6 +19,7 @@ import { registerConfigRoutes } from "./routes/config.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerSyncRoutes } from "./routes/sync.js";
+import { log, debug, isVerbose } from "./logger.js";
 
 export interface EngineHandle {
   app: FastifyInstance;
@@ -71,6 +72,13 @@ export async function startEngine(
   const allowedOrigins = buildAllowedOrigins(host, port);
 
   const app = Fastify({ logger: false });
+
+  if (isVerbose()) {
+    app.addHook("onResponse", (req, reply, done) => {
+      debug(`${req.method} ${req.url} → ${reply.statusCode} (${Math.round(reply.elapsedTime)}ms)`);
+      done();
+    });
+  }
 
   // Many endpoints are bodyless POSTs (merge, close, scan…). Browsers and our
   // client still send `Content-Type: application/json`, so treat an empty body
@@ -148,12 +156,14 @@ export async function startEngine(
 
   await app.listen({ host, port });
   const url = `http://${host}:${port}`;
+  log(`engine listening on ${url}`);
 
   return {
     app,
     ctx,
     url,
     close: async () => {
+      log("engine shutting down");
       agents.disable();
       sync.stop();
       hub.close();

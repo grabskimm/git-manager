@@ -1,4 +1,5 @@
 export { startEngine, type EngineHandle } from "./server.js";
+export { log, debug, setVerbose, isVerbose } from "./logger.js";
 export { openDb } from "./db.js";
 export * as store from "./store.js";
 export { resolveIdentity } from "./identity.js";
