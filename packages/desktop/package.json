@@ -24,5 +24,9 @@
     "electron": "33.2.0",
     "electron-builder": "^25.1.8",
     "typescript": "^5.5.4"
+  },
+  "comment:overrides": "node-pty pulls an ancient node-gyp (v7) that can't detect VS2022 on Windows; force a modern one for the @electron/rebuild native rebuild.",
+  "overrides": {
+    "node-gyp": "^10.2.0"
   }
 }

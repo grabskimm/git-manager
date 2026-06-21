@@ -28,5 +28,11 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "node-gyp": "^10.2.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.2.0"
   }
 }
