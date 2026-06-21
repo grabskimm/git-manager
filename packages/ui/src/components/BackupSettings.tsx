@@ -43,7 +43,7 @@ const PROVIDERS: ProviderDef[] = [
   {
     id: "r2",
     label: "Cloudflare R2",
-    auth: "Uses `wrangler login` (or `npx wrangler`) — no access keys stored.",
+    auth: "Uses your Cloudflare login via `npx wrangler login` — no access keys stored.",
     fields: [
       { key: "bucket", label: "R2 bucket", required: true, placeholder: "my-r2-bucket" },
       { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },

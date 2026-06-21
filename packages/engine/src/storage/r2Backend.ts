@@ -94,14 +94,18 @@ export class R2Backend implements StorageBackend {
       return {
         ok: false,
         reason:
-          "wrangler not found. Install it (`npm i -g wrangler`) or ensure `npx wrangler` works, then run `wrangler login`. Override the command with GITMANAGER_WRANGLER.",
+          "wrangler not found. Ensure `npx wrangler` works (or set GITMANAGER_WRANGLER), then run `npx wrangler login`.",
       };
     }
-    const who = await this.run(["whoami"]);
-    if (who.code !== 0) {
-      return { ok: false, reason: "Not logged in to Cloudflare — run `wrangler login`." };
-    }
+    // Readiness is "wrangler is invokable" — we don't gate on `whoami`, which is
+    // unreliable (false negatives even when r2 operations work). Auth problems
+    // surface as the real wrangler error on push, which is reported per-backend.
     return { ok: true };
+  }
+
+  /** The resolved invocation (e.g. "npx wrangler"), for messages. */
+  async invocation(): Promise<string> {
+    return (await wranglerBase())?.join(" ") ?? "wrangler";
   }
 
   async put(key: string, data: Buffer): Promise<void> {
