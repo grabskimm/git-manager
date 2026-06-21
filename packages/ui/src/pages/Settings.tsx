@@ -205,8 +205,9 @@ export function Settings() {
           <ul className="subtle" style={{ lineHeight: 1.8 }}>
             <li>Loopback-only bind — never <code>0.0.0.0</code>.</li>
             <li>
-              Bearer token on every <code>/api</code> call and WebSocket upgrade; constant-time
-              comparison.
+              Bearer token on every <code>/api</code> call; the WebSocket upgrade
+              carries the same token via <code>Sec-WebSocket-Protocol</code>;
+              constant-time comparison.
             </li>
             <li>Origin allow-list (blocks DNS-rebinding / CSRF) on state-changing requests.</li>
             <li>

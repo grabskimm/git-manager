@@ -40,7 +40,9 @@ export class WsHub {
     server.on("upgrade", (req, socket, head) => {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       if (url.pathname !== "/ws") {
-        // Not our path — let other upgrade handlers (e.g. terminal) deal with it.
+        // Not our path — let other upgrade handlers (e.g. terminal) deal with
+        // it. A catch-all in server.ts 404s any path no handler claims so the
+        // socket is never left hanging.
         return;
       }
 

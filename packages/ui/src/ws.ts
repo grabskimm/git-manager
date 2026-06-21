@@ -6,8 +6,9 @@ export interface WsEvent {
 }
 
 /**
- * Connect to the engine's WebSocket. The token rides as a query param because
- * browsers cannot set Authorization on a WebSocket handshake. Auto-reconnects.
+ * Connect to the engine's WebSocket. The token rides as the WebSocket
+ * subprotocol (browsers cannot set Authorization on a WS handshake, and the
+ * subprotocol keeps it out of URLs/logs). Auto-reconnects.
  */
 export function connectWs(onEvent: (e: WsEvent) => void): () => void {
   let ws: WebSocket | null = null;

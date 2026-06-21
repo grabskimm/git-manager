@@ -60,12 +60,23 @@ const PLACEHOLDER_HTML = `<!doctype html><html><head><meta charset="utf-8"><titl
 or run the dev server with <code>npm run dev:ui</code>.</p>
 </body></html>`;
 
+/** Parse GITMANAGER_PORT, ignoring blank/non-numeric/out-of-range values. */
+function envPort(): number | null {
+  const raw = process.env.GITMANAGER_PORT;
+  if (!raw) return null;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) {
+    log(`ignoring invalid GITMANAGER_PORT="${raw}" — using the default port`);
+    return null;
+  }
+  return n;
+}
+
 export async function startEngine(
   opts: { host?: string; port?: number } = {},
 ): Promise<EngineHandle> {
   const host = opts.host ?? "127.0.0.1";
-  const port =
-    opts.port ?? (process.env.GITMANAGER_PORT ? Number(process.env.GITMANAGER_PORT) : 4317);
+  const port = opts.port ?? envPort() ?? 4317;
 
   const db = openDb();
   const token = loadOrCreateToken();
@@ -105,6 +116,17 @@ export async function startEngine(
 
   const hub = new WsHub(app.server, token, allowedOrigins);
   new TerminalServer(app.server, token, allowedOrigins, db);
+  // Catch-all: WsHub and TerminalServer each handle only their own path and
+  // return for anything else, which would otherwise leave the upgrade socket
+  // open forever. Registered last so the owners get first refusal; this only
+  // fires for paths neither claimed.
+  const KNOWN_UPGRADE_PATHS = new Set(["/ws", "/ws/terminal"]);
+  app.server.on("upgrade", (req, socket) => {
+    const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
+    if (KNOWN_UPGRADE_PATHS.has(pathname)) return;
+    socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+    socket.destroy();
+  });
   const agents = new AgentManager(db, hub);
   const sync = new SyncScheduler(db);
 
