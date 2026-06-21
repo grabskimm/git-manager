@@ -232,7 +232,9 @@ const icoSizes = [16, 32, 48, 64, 128, 256];
 const ico = buildIco(icoSizes.map((size) => ({ size, png: encodePng(downsample(master, size), size) })));
 fs.writeFileSync(path.join(BUILD, "icon.ico"), ico);
 
-fs.writeFileSync(path.join(BUILD, "icon.png"), encodePng(downsample(master, 512), 512));
+// 1024px PNG: electron-builder uses it for Linux and generates the macOS .icns
+// from it (512 minimum; 1024 keeps retina crisp). logo.png is for docs/branding.
+fs.writeFileSync(path.join(BUILD, "icon.png"), encodePng(downsample(master, 1024), 1024));
 fs.writeFileSync(path.join(BUILD, "logo.png"), encodePng(downsample(master, 1024), 1024));
 
-console.log(`wrote icon.ico (${ico.length} b), icon.png (512), logo.png (1024) to ${BUILD}`);
+console.log(`wrote icon.ico (${ico.length} b), icon.png (1024), logo.png (1024) to ${BUILD}`);

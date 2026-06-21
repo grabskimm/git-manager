@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { desktop } from "../desktop";
 
-interface VersionInfo {
+export interface VersionInfo {
   version: string;
   build: string | null;
 }
@@ -14,7 +14,7 @@ interface VersionInfo {
  * Web/CLI: read it from the engine's `/api/ping`. As a last resort fall back to
  * the build-time constant injected by Vite. No hardcoded version lives here.
  */
-function useVersion(): VersionInfo | null {
+export function useVersion(): VersionInfo | null {
   const d = desktop();
   const [info, setInfo] = useState<VersionInfo | null>(
     d ? { version: d.version, build: d.build } : null,

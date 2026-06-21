@@ -97,11 +97,13 @@ Notes:
 
 - The first `npm install` (with scripts enabled) downloads the Electron binary.
   Behind a restrictive network policy this download may be blocked.
-- `npm run desktop` runs `prepare:native` first: it stages a self-contained
-  `node_modules` for the desktop package and rebuilds **better-sqlite3** for the
-  Electron ABI there (node-pty is N-API and ABI-stable, so it isn't rebuilt). This
-  is isolated from the repo-root `node_modules`, so the CLI/web build (`npm start`,
-  `npm test`) keeps using the system-Node binaries — no ABI clashes between the two.
+- `npm run desktop` rebuilds **better-sqlite3** for the Electron ABI before
+  launching (the engine, spawned on Electron's Node, can't load a system-Node
+  build — `NODE_MODULE_VERSION` mismatch). node-pty is N-API and ABI-stable, so it
+  isn't rebuilt. When the app exits, the `postdesktop` hook runs `npm rebuild
+  better-sqlite3` to restore the system-Node binary so the CLI/web engine
+  (`npm start`, `npm test`) keeps working. If you interrupt the app with Ctrl-C,
+  run `npm rebuild better-sqlite3` once to restore it.
 - Local installers are **unsigned** unless you provide the signing secrets below.
 
 ### App icon / logo
@@ -134,21 +136,21 @@ Pushing a `v*` tag triggers `.github/workflows/desktop-release.yml`, which:
 2. Builds the engine + UI + desktop shell.
 3. Runs `electron-builder` per-OS in a matrix:
    - `windows-latest` → `.msi` + `.exe` (NSIS)
-   - `macos-14` (Apple Silicon, arm64) and `macos-13` (Intel, x64) → `.dmg` + `.zip`
+   - `macos-14` (Apple Silicon, arm64) → `.dmg` + `.zip`
    - `ubuntu-22.04` → `.AppImage` + `.deb`
 4. Signs/notarizes when the secrets are present (otherwise produces **unsigned**
    installers and logs a warning — it never fails for missing secrets).
 5. Publishes a GitHub Release with all artifacts **and** the auto-update manifests.
 
 `pull_request` and pushes to `main` run the **validation build only**: compile +
-package on all three OSes, no signing, no publish — so packaging breakage is caught
-in PRs. Artifacts are uploaded for inspection (7-day retention).
+package on each OS, no signing, no publish — so packaging breakage is caught in
+PRs. Artifacts are uploaded for inspection (7-day retention).
 
-> **macOS arch note:** each mac runner builds its own architecture to avoid
-> cross-arch native rebuilds. electron-updater's macOS manifest (`latest-mac.yml`)
-> is single-channel; if you need one manifest covering both arches from separate
-> runners, build a **universal** binary on a single `macos-14` runner instead. The
-> per-arch `.dmg`s are the primary installer deliverable either way.
+> **macOS arch note:** the matrix builds **Apple Silicon (arm64)** only. To also
+> ship Intel, add a `macos-13` matrix entry (`arch: x64`, `ebflags: --x64`) and an
+> `x64` macOS target in `electron-builder.yml`; note that two mac runners both
+> publishing `latest-mac.yml` need care (or build a **universal** binary on one
+> `macos-14` runner instead).
 
 ## Auto-update flow
 

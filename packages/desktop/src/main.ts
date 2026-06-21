@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -45,6 +46,25 @@ if (!app.requestSingleInstanceLock()) {
     }
   });
   void app.whenReady().then(main);
+}
+
+/**
+ * Resolve the app icon PNG for the runtime window/taskbar icon. On Windows the
+ * packaged exe and on macOS the .app bundle already carry the icon, so this
+ * mainly covers dev and the Linux runtime window. Returns undefined if missing.
+ */
+function appIconPath(): string | undefined {
+  const candidates = [
+    path.join(__dirname, "..", "build", "icon.png"), // dev (dist/ -> build/)
+    path.join(process.resourcesPath ?? "", "icon.png"), // packaged (extraResources)
+  ];
+  return candidates.find((p) => {
+    try {
+      return p && fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
 }
 
 /** Find a free TCP port on loopback by binding to port 0 and reading it back. */
@@ -146,6 +166,7 @@ function createSplash(): void {
     resizable: false,
     center: true,
     show: true,
+    icon: appIconPath(),
     backgroundColor: "#0d1117",
     webPreferences: { contextIsolation: true, nodeIntegration: false },
   });
@@ -222,6 +243,7 @@ function createMainWindow(): void {
     show: false,
     backgroundColor: "#0d1117",
     title: "GitManager",
+    icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

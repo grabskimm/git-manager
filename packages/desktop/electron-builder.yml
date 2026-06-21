@@ -33,6 +33,12 @@ asarUnpack:
   - "**/better-sqlite3/**"
   - "**/node-pty/**"
 
+# Ship the icon as a runtime resource so the Linux window/taskbar icon (and the
+# dev fallback) can load it; the installers themselves use the build/ icons below.
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+
 # Native-module handling for the Electron ABI is done explicitly in CI (a single
 # `electron-rebuild --only better-sqlite3` step) rather than by electron-builder.
 # better-sqlite3 is a traditional V8 addon that needs an ABI-matched build;
@@ -72,6 +78,7 @@ nsis:
 # --- macOS ------------------------------------------------------------------
 mac:
   category: public.app-category.developer-tools
+  icon: build/icon.png # electron-builder generates the .icns from this
   hardenedRuntime: true
   gatekeeperAssess: false
   entitlements: build/entitlements.mac.plist
@@ -80,9 +87,9 @@ mac:
   # are present in the environment; skipped (unsigned) otherwise.
   target:
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
     - target: zip # required by electron-updater for macOS auto-update
-      arch: [arm64, x64]
+      arch: [arm64]
 dmg:
   writeUpdateInfo: true
 
@@ -90,6 +97,7 @@ dmg:
 linux:
   category: Development
   maintainer: GitManager
+  icon: build/icon.png
   # Clean names so the .deb package isn't derived from the scoped npm name
   # ("@gitmanager/desktop", which is invalid for a Debian package / filename).
   executableName: gitmanager
