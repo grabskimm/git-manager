@@ -1,12 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import { openDb } from "./db.js";
 import { gitUserName } from "./git.js";
 import { loadOrCreateToken } from "./token.js";
-import { buildAllowedOrigins, registerSecurity } from "./security.js";
+import { buildAllowedHosts, buildAllowedOrigins, registerSecurity } from "./security.js";
 import { WsHub } from "./ws.js";
 import { TerminalServer } from "./terminal.js";
 import { AgentManager } from "./agents/manager.js";
@@ -40,17 +41,39 @@ function resolveUiDist(): string | null {
   return candidates.find((c) => fs.existsSync(path.join(c, "index.html"))) ?? null;
 }
 
-/** Read index.html and inject the loopback token for the SPA to use. */
-function injectedIndexHtml(uiDist: string, token: string): string | null {
+/** Read index.html and inject the loopback token for the SPA to use. The token
+ * script carries the CSP nonce so it runs under a strict `script-src`. */
+function injectedIndexHtml(uiDist: string, token: string, nonce: string): string | null {
   try {
     const html = fs.readFileSync(path.join(uiDist, "index.html"), "utf8");
-    const tag = `<script>window.__GM_TOKEN__=${JSON.stringify(token)};</script>`;
+    const tag = `<script nonce="${nonce}">window.__GM_TOKEN__=${JSON.stringify(token)};</script>`;
     return html.includes("</head>")
       ? html.replace("</head>", `${tag}</head>`)
       : tag + html;
   } catch {
     return null;
   }
+}
+
+/**
+ * Content-Security-Policy for the served HTML (defense-in-depth backstop for the
+ * sanitizers in the UI). Scripts are limited to our own bundle plus the
+ * nonce'd token tag (no `unsafe-inline`), and `connect-src 'self'` stops any
+ * script that does slip through from exfiltrating the loopback token to an
+ * external origin. `frame-ancestors 'none'` blocks clickjacking.
+ */
+function contentSecurityPolicy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join("; ");
 }
 
 const PLACEHOLDER_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>GitManager</title></head>
@@ -81,6 +104,7 @@ export async function startEngine(
   const db = openDb();
   const token = loadOrCreateToken();
   const allowedOrigins = buildAllowedOrigins(host, port);
+  const allowedHosts = buildAllowedHosts(host, port);
 
   const app = Fastify({ logger: false });
 
@@ -112,7 +136,7 @@ export async function startEngine(
     },
   );
 
-  registerSecurity(app, token, allowedOrigins);
+  registerSecurity(app, token, allowedOrigins, allowedHosts);
 
   const hub = new WsHub(app.server, token, allowedOrigins);
   new TerminalServer(app.server, token, allowedOrigins, db);
@@ -156,20 +180,22 @@ export async function startEngine(
       index: false,
     });
   }
+  const cspNonce = crypto.randomBytes(16).toString("base64");
+  const csp = contentSecurityPolicy(cspNonce);
   const indexHtml = uiDist
-    ? injectedIndexHtml(uiDist, token) ?? PLACEHOLDER_HTML
+    ? injectedIndexHtml(uiDist, token, cspNonce) ?? PLACEHOLDER_HTML
     : PLACEHOLDER_HTML;
 
   // SPA fallback: any non-API GET serves the (token-injected) index.
   app.setNotFoundHandler((req, reply) => {
     if (req.method === "GET" && !req.url.startsWith("/api") && req.url !== "/ws") {
-      reply.type("text/html").send(indexHtml);
+      reply.header("Content-Security-Policy", csp).type("text/html").send(indexHtml);
       return;
     }
     reply.code(404).send({ error: "not_found" });
   });
   app.get("/", async (_req, reply) => {
-    reply.type("text/html").send(indexHtml);
+    reply.header("Content-Security-Policy", csp).type("text/html").send(indexHtml);
   });
 
   // Bring up agent observation and the backup schedule if previously enabled.
