@@ -23,13 +23,15 @@ files:
   - "!**/*.map"
 
 # Native modules (better-sqlite3, node-pty) cannot run from inside the asar
-# archive — unpack them, and the engine code we spawn as a child process.
+# archive — unpack them, and the engine code we spawn as a child process. Globs
+# are "**/"-prefixed because, in the self-contained install, the engine's native
+# deps may be nested under node_modules/@gitmanager/engine/node_modules.
 asar: true
 asarUnpack:
   - "**/*.node"
-  - "node_modules/@gitmanager/engine/**"
-  - "node_modules/better-sqlite3/**"
-  - "node_modules/node-pty/**"
+  - "**/@gitmanager/engine/**"
+  - "**/better-sqlite3/**"
+  - "**/node-pty/**"
 
 # Rebuild native deps against the Electron ABI at package time.
 npmRebuild: true

@@ -91,6 +91,15 @@ jobs:
         env:
           GITMANAGER_BUILD_SHA: ${{ github.sha }}
 
+      # Stage a self-contained, de-hoisted node_modules for the desktop app so
+      # electron-builder packages it without re-installing prod deps (which, against
+      # the hoisted root node_modules, prunes app-builder-bin — electron-builder#7103).
+      # install-links (.npmrc) copies file:../engine in as a real package; --omit=dev
+      # keeps it to runtime deps. The engine must already be built (above).
+      - name: Stage desktop production deps (self-contained)
+        working-directory: packages/desktop
+        run: npm install --omit=dev --no-save --workspaces=false
+
       # ---- Release build (tag): sign if secrets present, then publish --------
       - name: Build & publish release
         if: startsWith(github.ref, 'refs/tags/v')
