@@ -2,6 +2,13 @@ appId: com.gitmanager.desktop
 productName: GitManager
 copyright: Copyright © GitManager
 
+# Pin the Electron version explicitly. In this npm workspace the `electron`
+# devDependency is hoisted to the repo-root node_modules, so electron-builder's
+# local "installed electron module" probe (run from packages/desktop) can't find
+# it and otherwise fails with "Cannot compute electron version". Must match the
+# devDependency in package.json.
+electronVersion: 33.2.0
+
 directories:
   output: release
   buildResources: build
