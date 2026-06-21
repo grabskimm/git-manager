@@ -187,7 +187,6 @@ export function BackupSettings() {
 
   return (
     <>
-      <hr className="sep" />
       <h2>Backup &amp; sync</h2>
       <p className="subtle">
         Back up each repo as a <code>git bundle</code> to object storage (S3, Cloudflare R2, Azure,
