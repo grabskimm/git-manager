@@ -295,6 +295,93 @@ async function cmdPr(args: string[]): Promise<void> {
   }
 }
 
+// ---- sync (object-storage backup) ----
+
+interface SyncStatus {
+  sync_enabled: boolean;
+  sync_interval_minutes: number;
+  backends: { id: string; label: string; enabled: boolean; ready: { ok: boolean; reason?: string } }[];
+  manifest: { updatedAt: string; repos: Record<string, { name: string; lastBackupAt: string; bytes: number }> } | null;
+  manifestFrom: string | null;
+}
+
+async function cmdSyncStatus(): Promise<void> {
+  const s = await apiCall<SyncStatus>("GET", "/api/sync/status");
+  process.stdout.write(
+    `Scheduled backup: ${s.sync_enabled ? `on (every ${s.sync_interval_minutes}m)` : "off (manual)"}\n`,
+  );
+  if (s.backends.length === 0) {
+    process.stdout.write("No storage backends configured. Add one in Settings → Backup.\n");
+  } else {
+    process.stdout.write("Backends:\n");
+    for (const b of s.backends) {
+      const state = !b.enabled ? "disabled" : b.ready.ok ? "ready" : `not ready: ${b.ready.reason}`;
+      process.stdout.write(`  ${pad(b.label, 36)} ${state}\n`);
+    }
+  }
+  if (s.manifest) {
+    const repos = Object.entries(s.manifest.repos);
+    process.stdout.write(`\nBacked up repos (${repos.length}) — from ${s.manifestFrom}:\n`);
+    for (const [gmId, r] of repos) {
+      process.stdout.write(`  ${pad(r.name, 28)} ${pad(gmId.slice(0, 16), 18)} ${r.lastBackupAt}\n`);
+    }
+  }
+}
+
+async function cmdSyncPush(flags: Record<string, string | true>): Promise<void> {
+  const repoRef = str(flags.repo);
+  const repoId = repoRef ? (await resolveRepo(repoRef)).id : undefined;
+  const res = await apiCall<{
+    pushed: { repo: string; gmId: string; results: { backend: string; status: string; reason?: string; bytes?: number }[] }[];
+  }>("POST", "/api/sync/push", { repoId });
+  for (const p of res.pushed) {
+    process.stdout.write(`${p.repo}:\n`);
+    for (const r of p.results) {
+      const detail = r.status === "ok" ? `${((r.bytes ?? 0) / 1024).toFixed(0)} KiB` : r.reason ?? "";
+      process.stdout.write(`  ${pad(r.backend, 36)} ${r.status}  ${detail}\n`);
+    }
+  }
+}
+
+async function cmdSyncPull(gmId: string | undefined, flags: Record<string, string | true>): Promise<void> {
+  if (!gmId) throw new Error("Usage: gitm sync pull <gm-id> [--into <dir>]  (see `gitm sync status` for ids)");
+  const res = await apiCall<{ status: string; reason?: string; path?: string; refs?: string[] }>(
+    "POST",
+    "/api/sync/pull",
+    { gmId, into: str(flags.into) },
+  );
+  if (res.status === "cloned") process.stdout.write(`Cloned to ${res.path}\n`);
+  else if (res.status === "updated")
+    process.stdout.write(`Fetched into ${res.path} as refs/remotes/gm-backup/* (${(res.refs ?? []).length} branches)\n`);
+  else process.stdout.write(`Skipped: ${res.reason}\n`);
+}
+
+async function cmdSyncConfig(): Promise<void> {
+  const cfg = await apiCall<unknown>("GET", "/api/sync/config");
+  process.stdout.write(
+    `Storage config (~/.gitmanager/storage.json):\n${JSON.stringify(cfg, null, 2)}\n` +
+      `Edit it there or in Settings → Backup. Credentials come from your provider logins ` +
+      `(aws sso login / wrangler login / az login) — no keys are stored here.\n`,
+  );
+}
+
+async function cmdSync(args: string[]): Promise<void> {
+  const sub = args[0];
+  const { _, flags } = parseFlags(args.slice(1));
+  switch (sub) {
+    case "status":
+      return cmdSyncStatus();
+    case "push":
+      return cmdSyncPush(flags);
+    case "pull":
+      return cmdSyncPull(_[0], flags);
+    case "config":
+      return cmdSyncConfig();
+    default:
+      throw new Error("Usage: gitm sync <status|push|pull|config> …");
+  }
+}
+
 interface SourceDir {
   id: string;
   path: string;
@@ -391,6 +478,10 @@ function help(): void {
       "  gitm pr view <pr-id>                 Show a PR and its review thread",
       "  gitm pr merge <pr-id>                Merge a PR (ff / merge-commit)",
       "  gitm pr close <pr-id>                Close a PR",
+      "  gitm sync status                     Show backup backends, schedule, and remote manifest",
+      "  gitm sync push [--repo <id|name>]    Back up repo(s) to object storage now",
+      "  gitm sync pull <gm-id> [--into <d>]  Restore a repo from storage (clone, or fetch if present)",
+      "  gitm sync config                     Show the storage config + how creds are sourced",
       "  gitm hook-event                      Internal: nudge agent refresh (used by hooks)",
       "",
       "Options:",
@@ -460,6 +551,8 @@ async function main(): Promise<void> {
       return cmdScan();
     case "pr":
       return cmdPr(rest);
+    case "sync":
+      return cmdSync(rest);
     case "--help":
     case "-h":
     case "help":

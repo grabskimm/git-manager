@@ -164,8 +164,8 @@ changes once assigned):
 2. Else if the repo has commits, `id` = the **earliest root commit SHA**.
 3. Else generate `gm-<uuid>`, write it to `<repo>/.gitmanager`, and use it.
 
-This is the stable join key for the unified view (and for the deferred R2 sync). A repo
-copied to a different path resolves to the **same id**.
+This is the stable join key for the unified view (and the key under which each repo's
+backups are stored). A repo copied to a different path resolves to the **same id**.
 
 ## PR lifecycle
 
@@ -219,6 +219,36 @@ merge engine, so **your working tree is never touched**. The new commit shows up
 diff immediately. This is the one place GitManager lets `claude` write to your repo, so it is
 off by default.
 
+## Backup & sync (opt-in)
+
+A storage backend for **backing up repos and moving between devices without
+GitHub**. It is **not** a git remote — no git operations ever run server-side; the
+store just holds backups. Git work is always **local**.
+
+- **What's stored:** each repo as a `git bundle --all`, keyed by its stable §8
+  `gm-id`, as **timestamped snapshots + a `latest` pointer** (last 10 kept, pruned
+  automatically). A top-level `manifest.json` lets a fresh device discover what to
+  restore; a per-repo `index.json` tracks snapshot history (so no bucket *listing*
+  is ever required).
+- **Backends (configure one or many):** **S3** (`@aws-sdk/client-s3`), **Cloudflare
+  R2** (via the `wrangler` CLI), **Azure Blob** (`@azure/storage-blob`), and a local
+  **filesystem** target (handy for a NAS/mounted drive). Multiple enabled backends
+  are written on every push.
+- **Credentials:** none are stored by GitManager. Auth comes from each provider's own
+  login — AWS default chain / `aws sso login`, `wrangler login`, `az login`
+  (`DefaultAzureCredential`). The cloud SDKs are **optional dependencies**, loaded
+  lazily; a backend that isn't installed/logged-in simply reports "not ready" and is
+  skipped.
+- **Push:** manual by default (`gitm sync push`, or *Back up all now* in Settings →
+  Backup). Turn on `sync_enabled` for a push every `sync_interval_minutes`.
+- **Pull / restore:** on a fresh device, `gitm sync pull <gm-id> --into <dir>` clones
+  the latest snapshot locally; on a device that already has the repo, it fetches
+  non-destructively into `refs/remotes/gm-backup/*` (your local work is never
+  overwritten). Use `gitm sync status` to list backends and the remote manifest.
+
+Config lives in `~/.gitmanager/storage.json` (`0600`); it holds bucket/container
+names only, never secrets.
+
 ## Agent observe panel (opt-in)
 
 Enable it in Settings (or from the panel). GitManager then reads agent session
@@ -260,6 +290,8 @@ Stored in SQLite (`config` table), editable in Settings:
 | `chat_enabled` | `false` | Enable the repo chat panel in the right sidebar |
 | `terminal_enabled` | `false` | Enable the built-in terminal tab on each repo view |
 | `implement_enabled` | `false` | Allow Claude to implement PR changes (writes files, commits to the head branch) |
+| `sync_enabled` | `false` | Enable scheduled backups of all repos to object storage |
+| `sync_interval_minutes` | `10` | Interval (minutes) for scheduled backups when enabled |
 
 Environment overrides: `GITMANAGER_PORT` (default `4317`), `GITMANAGER_HOME` (default
 `~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`).
@@ -286,9 +318,6 @@ packages/
 
 ## Deferred modules (seams exist; code later)
 
-- **R2 sync** — two-tier: git objects via a bare git remote on R2 (let `git push`/`fetch`
-  resolve), plus a SQLite metadata bundle under a separate prefix. Identity is already
-  stamped; local `.git` stays canonical.
 - **Agent control** — implement the stubbed `start`/`stop`/`resume` and flip the capability
   flag; the UI is already capability-driven.
 - **Additional agent sources** — new `AgentSource` implementations.

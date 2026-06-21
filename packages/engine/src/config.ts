@@ -14,8 +14,18 @@ export function getConfig(db: DB): AppConfig {
     chat_enabled: Boolean(map.get("chat_enabled") ?? false),
     terminal_enabled: Boolean(map.get("terminal_enabled") ?? false),
     implement_enabled: Boolean(map.get("implement_enabled") ?? false),
+    sync_enabled: Boolean(map.get("sync_enabled") ?? false),
+    sync_interval_minutes: clampInterval(Number(map.get("sync_interval_minutes") ?? 10)),
   };
 }
+
+function clampInterval(n: number): number {
+  if (!Number.isFinite(n) || n < 1) return 10;
+  return Math.min(Math.max(Math.floor(n), 1), 1440);
+}
+
+// Keys whose value is numeric (not coerced to boolean on write).
+const NUMERIC_KEYS = new Set(["sync_interval_minutes"]);
 
 export function setConfigValue(db: DB, key: string, value: unknown): void {
   db.prepare(
@@ -30,13 +40,15 @@ const ALLOWED_KEYS = new Set([
   "chat_enabled",
   "terminal_enabled",
   "implement_enabled",
+  "sync_enabled",
+  "sync_interval_minutes",
 ]);
 
 export function updateConfig(db: DB, patch: Record<string, unknown>): AppConfig {
   const tx = db.transaction(() => {
     for (const [key, value] of Object.entries(patch)) {
       if (!ALLOWED_KEYS.has(key)) continue;
-      setConfigValue(db, key, Boolean(value));
+      setConfigValue(db, key, NUMERIC_KEYS.has(key) ? clampInterval(Number(value)) : Boolean(value));
     }
   });
   tx();

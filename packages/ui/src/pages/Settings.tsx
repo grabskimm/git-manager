@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { useApp } from "../state";
+import { BackupSettings } from "../components/BackupSettings";
 
 export function Settings() {
   const { sourceDirs, config, reloadSourceDirs, reloadRepos, setConfig } = useApp();
@@ -160,6 +161,8 @@ export function Settings() {
           </label>
         </div>
       )}
+
+      <BackupSettings />
 
       <hr className="sep" />
       <h2>Security</h2>

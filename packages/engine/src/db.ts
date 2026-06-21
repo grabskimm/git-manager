@@ -74,6 +74,8 @@ const DEFAULT_CONFIG: Record<string, unknown> = {
   chat_enabled: false,
   terminal_enabled: false,
   implement_enabled: false,
+  sync_enabled: false,
+  sync_interval_minutes: 10,
 };
 
 export function openDb(file: string = dbPath()): DB {

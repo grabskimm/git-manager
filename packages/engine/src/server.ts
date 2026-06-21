@@ -9,6 +9,7 @@ import { buildAllowedOrigins, registerSecurity } from "./security.js";
 import { WsHub } from "./ws.js";
 import { TerminalServer } from "./terminal.js";
 import { AgentManager } from "./agents/manager.js";
+import { SyncScheduler } from "./storage/scheduler.js";
 import type { AppContext } from "./context.js";
 import { registerSourceRoutes } from "./routes/sources.js";
 import { registerRepoRoutes } from "./routes/repos.js";
@@ -16,6 +17,7 @@ import { registerPrRoutes } from "./routes/prs.js";
 import { registerConfigRoutes } from "./routes/config.js";
 import { registerAgentRoutes } from "./routes/agents.js";
 import { registerChatRoutes } from "./routes/chat.js";
+import { registerSyncRoutes } from "./routes/sync.js";
 
 export interface EngineHandle {
   app: FastifyInstance;
@@ -95,8 +97,9 @@ export async function startEngine(
   const hub = new WsHub(app.server, token, allowedOrigins);
   new TerminalServer(app.server, token, allowedOrigins, db);
   const agents = new AgentManager(db, hub);
+  const sync = new SyncScheduler(db);
 
-  const ctx: AppContext = { db, hub, agents, token, allowedOrigins, host, port };
+  const ctx: AppContext = { db, hub, agents, sync, token, allowedOrigins, host, port };
 
   // Health check (still behind auth + Origin).
   app.get("/api/ping", async () => ({ ok: true, version: "1.0.0" }));
@@ -107,6 +110,7 @@ export async function startEngine(
   registerConfigRoutes(app, ctx);
   registerAgentRoutes(app, ctx);
   registerChatRoutes(app, ctx);
+  registerSyncRoutes(app, ctx);
 
   // Static UI on the same loopback origin.
   const uiDist = resolveUiDist();
@@ -134,8 +138,9 @@ export async function startEngine(
     reply.type("text/html").send(indexHtml);
   });
 
-  // Bring up agent observation if it was previously enabled.
+  // Bring up agent observation and the backup schedule if previously enabled.
   agents.syncWithConfig();
+  sync.syncWithConfig();
 
   await app.listen({ host, port });
   const url = `http://${host}:${port}`;
@@ -146,6 +151,7 @@ export async function startEngine(
     url,
     close: async () => {
       agents.disable();
+      sync.stop();
       hub.close();
       await app.close();
       db.close();

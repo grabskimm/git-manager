@@ -148,4 +148,36 @@ export const api = {
   // agents
   agents: () => request<AgentsResponse>("/api/agents"),
   refreshAgents: () => request<{ sessions: unknown }>("/api/agents/refresh", { method: "POST" }),
+
+  // sync / backup
+  syncStatus: () => request<SyncStatus>("/api/sync/status"),
+  getSyncConfig: () => request<{ backends: unknown[] }>("/api/sync/config"),
+  setSyncConfig: (cfg: { backends: unknown[] }) =>
+    request<{ backends: unknown[] }>("/api/sync/config", {
+      method: "PUT",
+      body: JSON.stringify(cfg),
+    }),
+  syncPush: (repoId?: string) =>
+    request<{ pushed: SyncPushRepo[] }>("/api/sync/push", {
+      method: "POST",
+      body: JSON.stringify({ repoId }),
+    }),
+  syncPull: (gmId: string, into?: string) =>
+    request<{ status: string; reason?: string; path?: string; refs?: string[] }>("/api/sync/pull", {
+      method: "POST",
+      body: JSON.stringify({ gmId, into }),
+    }),
 };
+
+export interface SyncStatus {
+  sync_enabled: boolean;
+  sync_interval_minutes: number;
+  backends: { id: string; label: string; enabled: boolean; ready: { ok: boolean; reason?: string } }[];
+  manifest: { updatedAt: string; repos: Record<string, { name: string; lastBackupAt: string; bytes: number }> } | null;
+  manifestFrom: string | null;
+}
+export interface SyncPushRepo {
+  repo: string;
+  gmId: string;
+  results: { backend: string; status: string; reason?: string; bytes?: number }[];
+}

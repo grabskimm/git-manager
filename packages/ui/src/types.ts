@@ -91,6 +91,8 @@ export interface AppConfig {
   chat_enabled: boolean;
   terminal_enabled: boolean;
   implement_enabled: boolean;
+  sync_enabled: boolean;
+  sync_interval_minutes: number;
 }
 
 export interface DiffResponse {

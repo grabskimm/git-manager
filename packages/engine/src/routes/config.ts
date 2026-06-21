@@ -7,8 +7,9 @@ export function registerConfigRoutes(app: FastifyInstance, ctx: AppContext): voi
 
   app.put<{ Body: Record<string, unknown> }>("/api/config", async (req) => {
     const next = updateConfig(ctx.db, req.body ?? {});
-    // Apply side effects (e.g. enable/disable agent observation).
+    // Apply side effects (e.g. enable/disable agent observation, backup schedule).
     ctx.agents.syncWithConfig();
+    ctx.sync.syncWithConfig();
     return next;
   });
 }
