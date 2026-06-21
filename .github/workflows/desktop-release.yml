@@ -28,14 +28,18 @@ jobs:
         include:
           - os: windows-latest
             name: windows
+            arch: x64
           - os: macos-14 # Apple Silicon
             name: macos-arm64
+            arch: arm64
             ebflags: "--arm64"
           - os: macos-13 # Intel
             name: macos-x64
+            arch: x64
             ebflags: "--x64"
           - os: ubuntu-22.04 # pinned for broad glibc compatibility
             name: linux
+            arch: x64
 
     runs-on: ${{ matrix.os }}
 
@@ -109,6 +113,14 @@ jobs:
       - name: Stage desktop production deps (self-contained)
         working-directory: packages/desktop
         run: npm install --omit=dev --install-links --no-save --workspaces=false
+
+      # Rebuild ONLY better-sqlite3 (a V8 addon) for the Electron ABI. node-pty is
+      # N-API (node-addon-api) and ABI-stable, so it keeps its install-time/prebuilt
+      # binary — recompiling it under @electron/rebuild deadlocks the build. This
+      # replaces electron-builder's own rebuild (npmRebuild: false in the config).
+      - name: Rebuild better-sqlite3 for Electron
+        working-directory: packages/desktop
+        run: npx --no-install electron-rebuild -v 33.2.0 -a ${{ matrix.arch }} -o better-sqlite3 -m .
 
       # ---- Release build (tag): sign if secrets present, then publish --------
       - name: Build & publish release

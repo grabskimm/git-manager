@@ -33,8 +33,12 @@ asarUnpack:
   - "**/better-sqlite3/**"
   - "**/node-pty/**"
 
-# Rebuild native deps against the Electron ABI at package time.
-npmRebuild: true
+# Native-module handling for the Electron ABI is done explicitly in CI (a single
+# `electron-rebuild --only better-sqlite3` step) rather than by electron-builder.
+# better-sqlite3 is a traditional V8 addon that needs an ABI-matched build;
+# node-pty is N-API (node-addon-api) and is ABI-stable, so it must NOT be
+# recompiled — forcing its rebuild here deadlocks the build. Hence npmRebuild off.
+npmRebuild: false
 nodeGypRebuild: false
 
 # --- auto-update manifest + GitHub Release publishing -----------------------
