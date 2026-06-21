@@ -11,24 +11,47 @@ interface CmdResult {
   stderr: string;
 }
 
-function run(args: string[], input?: Buffer): Promise<CmdResult> {
+const isWin = process.platform === "win32";
+
+/** Raw spawn of one command. On Windows, .cmd shims (npx/wrangler) need a shell. */
+function rawRun(cmd: string, args: string[], input?: Buffer): Promise<CmdResult> {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn("wrangler", args, { stdio: ["pipe", "pipe", "pipe"] });
+      child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: isWin });
     } catch (err) {
       resolve({ code: -1, stdout: "", stderr: String(err) });
       return;
     }
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-    child.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+    child.stdout?.on("data", (d: Buffer) => (stdout += d.toString()));
+    child.stderr?.on("data", (d: Buffer) => (stderr += d.toString()));
     child.on("error", (err) => resolve({ code: -1, stdout, stderr: stderr || String(err) }));
     child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr }));
-    if (input) child.stdin.write(input);
-    child.stdin.end();
+    if (input) child.stdin?.write(input);
+    child.stdin?.end();
   });
+}
+
+// Resolve how to invoke wrangler once: explicit override, then a global
+// `wrangler`, then `npx wrangler` (the common case — wrangler run via npx).
+let resolvedBase: string[] | null = null;
+async function wranglerBase(): Promise<string[] | null> {
+  if (resolvedBase) return resolvedBase;
+  const candidates: string[][] = [];
+  const override = process.env.GITMANAGER_WRANGLER;
+  if (override) candidates.push(override.split(" ").filter(Boolean));
+  candidates.push(["wrangler"]);
+  candidates.push(["npx", "wrangler"]);
+  for (const base of candidates) {
+    const res = await rawRun(base[0], [...base.slice(1), "--version"]);
+    if (res.code === 0) {
+      resolvedBase = base;
+      return base;
+    }
+  }
+  return null;
 }
 
 function tmpFile(): string {
@@ -37,8 +60,9 @@ function tmpFile(): string {
 
 /**
  * Cloudflare R2 backend via the `wrangler` CLI, so it uses the user's existing
- * `wrangler login` (OAuth) — no R2 access keys stored by GitManager. Requires
- * `wrangler` on PATH. Uses `--remote` so it hits real R2, not local state.
+ * `wrangler login` (OAuth) — no R2 access keys stored by GitManager. Resolves
+ * `wrangler` from PATH or falls back to `npx wrangler` (override with
+ * GITMANAGER_WRANGLER). Uses `--remote` so it hits real R2, not local state.
  */
 export class R2Backend implements StorageBackend {
   readonly id = "r2";
@@ -52,12 +76,28 @@ export class R2Backend implements StorageBackend {
     return `${this.bucket}/${key}`;
   }
 
-  async isReady(): Promise<{ ok: true } | { ok: false; reason: string }> {
-    const res = await run(["--version"]);
-    if (res.code !== 0) {
-      return { ok: false, reason: "wrangler not found — install it and run `wrangler login`." };
+  private async run(args: string[], input?: Buffer): Promise<CmdResult> {
+    const base = await wranglerBase();
+    if (!base) {
+      return {
+        code: -1,
+        stdout: "",
+        stderr: "wrangler not found (tried `wrangler` and `npx wrangler`)",
+      };
     }
-    const who = await run(["whoami"]);
+    return rawRun(base[0], [...base.slice(1), ...args], input);
+  }
+
+  async isReady(): Promise<{ ok: true } | { ok: false; reason: string }> {
+    const base = await wranglerBase();
+    if (!base) {
+      return {
+        ok: false,
+        reason:
+          "wrangler not found. Install it (`npm i -g wrangler`) or ensure `npx wrangler` works, then run `wrangler login`. Override the command with GITMANAGER_WRANGLER.",
+      };
+    }
+    const who = await this.run(["whoami"]);
     if (who.code !== 0) {
       return { ok: false, reason: "Not logged in to Cloudflare — run `wrangler login`." };
     }
@@ -68,7 +108,7 @@ export class R2Backend implements StorageBackend {
     const f = tmpFile();
     fs.writeFileSync(f, data);
     try {
-      const res = await run(["r2", "object", "put", this.ref(key), "--file", f, "--remote"]);
+      const res = await this.run(["r2", "object", "put", this.ref(key), "--file", f, "--remote"]);
       if (res.code !== 0) throw new Error(`wrangler r2 put failed: ${res.stderr.trim()}`);
     } finally {
       try {
@@ -82,7 +122,7 @@ export class R2Backend implements StorageBackend {
   async get(key: string): Promise<Buffer | null> {
     const f = tmpFile();
     try {
-      const res = await run(["r2", "object", "get", this.ref(key), "--file", f, "--remote"]);
+      const res = await this.run(["r2", "object", "get", this.ref(key), "--file", f, "--remote"]);
       if (res.code !== 0) return null;
       return fs.existsSync(f) ? fs.readFileSync(f) : null;
     } finally {
@@ -95,6 +135,6 @@ export class R2Backend implements StorageBackend {
   }
 
   async del(key: string): Promise<void> {
-    await run(["r2", "object", "delete", this.ref(key), "--remote"]);
+    await this.run(["r2", "object", "delete", this.ref(key), "--remote"]);
   }
 }
