@@ -49,10 +49,12 @@ export function RepoBackup({ repoId }: { repoId: string }) {
     }
   };
 
+  const allOk = results != null && results.length > 0 && results.every((r) => r.status === "ok");
+
   if (status && enabled.length === 0) {
     return (
       <div className="repo-backup faint">
-        Backup off — <Link to="/settings">configure a destination</Link>
+        Sync off — <Link to="/settings">configure a destination</Link>
       </div>
     );
   }
@@ -60,15 +62,19 @@ export function RepoBackup({ repoId }: { repoId: string }) {
   return (
     <div className="repo-backup">
       <div className="row" style={{ gap: 8 }}>
-        <button onClick={backup} disabled={busy} title="Back up just this repo">
-          {busy ? "Backing up…" : "⤓ Back up"}
+        <button onClick={backup} disabled={busy} title="Sync this repo to all configured destinations">
+          {busy ? "Syncing…" : "⟳ Sync"}
         </button>
-        <span className="faint" style={{ fontSize: 12 }}>
-          {lastBackup ? `last backup ${relTime(lastBackup)}` : "not backed up yet"}
-        </span>
+        {allOk ? (
+          <span style={{ fontSize: 12, color: "var(--green)" }}>✓ synced</span>
+        ) : (
+          <span className="faint" style={{ fontSize: 12 }}>
+            {lastBackup ? `last synced ${relTime(lastBackup)}` : "never synced"}
+          </span>
+        )}
       </div>
       {err && <div className="banner error" style={{ marginTop: 6 }}>{err}</div>}
-      {results && (
+      {results && !allOk && (
         <div className="faint" style={{ fontSize: 12, marginTop: 6 }}>
           {results.map((r, i) => (
             <div key={i}>

@@ -26,7 +26,7 @@ const PROVIDERS: ProviderDef[] = [
     auth: "Writes to a local path — no login required.",
     fields: [
       { key: "dir", label: "Directory", required: true, placeholder: "~/.gitmanager/backups" },
-      { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },
+      { key: "prefix", label: "Prefix", required: false, placeholder: "backups" },
     ],
   },
   {
@@ -134,7 +134,7 @@ export function BackupSettings() {
       const entry = { ...f[id], enabled };
       // Prefill the local-folder default the first time it's enabled.
       if (id === "fs" && enabled && !entry.values.dir?.trim()) {
-        entry.values = { ...entry.values, dir: DEFAULT_FS_DIR };
+        entry.values = { ...entry.values, dir: DEFAULT_FS_DIR, prefix: entry.values.prefix?.trim() || "backups" };
       }
       return { ...f, [id]: entry };
     });
@@ -183,6 +183,15 @@ export function BackupSettings() {
 
   const readyById = (id: string) => status?.backends.find((b) => b.id === id)?.ready;
 
+  function relTime(ts?: string | null): string | null {
+    if (!ts) return null;
+    const s = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+    if (s < 60) return "just now";
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+  }
+
   if (!config) return null;
 
   return (
@@ -225,6 +234,11 @@ export function BackupSettings() {
                       }}
                     >
                       {ready.ok ? "ready" : "not ready"}
+                    </span>
+                  )}
+                  {e.enabled && ready?.ok && status?.manifest && (
+                    <span className="faint" style={{ marginLeft: 8, fontSize: 12 }}>
+                      last synced {relTime(status.manifest.updatedAt) ?? "—"}
                     </span>
                   )}
                   <div className="faint" style={{ fontSize: 12 }}>
