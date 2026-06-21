@@ -4,6 +4,7 @@ import type { DB } from "./db.js";
 import { resolveIdentity } from "./identity.js";
 import { defaultBranch } from "./git.js";
 import { listSourceDirs, upsertRepo } from "./store.js";
+import { debug } from "./logger.js";
 import type { Repo } from "./types.js";
 
 const IGNORE_DIRS = new Set([
@@ -41,7 +42,11 @@ function findRepoRoots(root: string): string[] {
       return; // do not descend into a repo
     }
     for (const e of entries) {
-      if (!e.isDirectory() || e.isSymbolicLink()) continue;
+      if (e.isSymbolicLink()) {
+        debug(`scan: skipping symlink ${path.join(dir, e.name)} (symlinks are not followed)`);
+        continue;
+      }
+      if (!e.isDirectory()) continue;
       if (e.name.startsWith(".")) continue;
       if (IGNORE_DIRS.has(e.name)) continue;
       walk(path.join(dir, e.name), depth + 1);

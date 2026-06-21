@@ -1,17 +1,19 @@
 import { useMemo } from "react";
 import { html as diffHtml } from "diff2html";
+import DOMPurify from "dompurify";
 import { useApp } from "../state";
 
 export function DiffViewer({ diff, stat }: { diff: string; stat?: string }) {
   const { theme } = useApp();
   const rendered = useMemo(() => {
     if (!diff.trim()) return "";
-    return diffHtml(diff, {
+    const raw = diffHtml(diff, {
       drawFileList: true,
       matching: "lines",
       outputFormat: "line-by-line",
       colorScheme: (theme === "light" ? "light" : "dark") as never,
     });
+    return DOMPurify.sanitize(raw);
   }, [diff, theme]);
 
   if (!diff.trim()) {

@@ -85,6 +85,7 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
     // Open the remote PR (opt-in) and run the Claude review asynchronously, so
     // neither blocks the create response. The local PR is never blocked.
     void (async () => {
+      try {
       let remoteUrl: string | null = null;
       if (remote) {
         const res = await createGitHubPr(repo.abs_path, {
@@ -133,6 +134,9 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
             ctx.hub.broadcast("pr.updated", { prId: pr.id });
           }
         }
+      }
+      } catch (err) {
+        process.stderr.write(`[gitm] unexpected error in PR background task pr=${pr.id}: ${(err as Error)?.message ?? String(err)}\n`);
       }
     })();
 

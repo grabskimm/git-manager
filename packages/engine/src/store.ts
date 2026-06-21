@@ -232,15 +232,12 @@ export function markStaleSessionsDone(
 ): void {
   const sessions = listSessions(db);
   const active = new Set(activeIds);
-  const upd = db.prepare(
-    "UPDATE agent_sessions SET status = ? WHERE id = ? AND status != 'done'",
-  );
-  for (const s of sessions) {
-    if (!active.has(s.id)) {
-      upd.run(status, s.id);
-      debug(`store: markStaleSessionsDone id=${s.id} → ${status}`);
-    }
-  }
+  const inactive = sessions.filter((s) => !active.has(s.id)).map((s) => s.id);
+  if (!inactive.length) return;
+  db.prepare(
+    `UPDATE agent_sessions SET status = ? WHERE id IN (${inactive.map(() => "?").join(",")}) AND status != 'done'`,
+  ).run(status, ...inactive);
+  debug(`store: markStaleSessionsDone ids=[${inactive.join(",")}] → ${status}`);
 }
 
 export { uuid, now, type PrStatus };

@@ -57,6 +57,8 @@ export async function attemptMerge(
     }
 
     const merge = await runGit(worktree, [
+      "-c", "user.name=GitManager",
+      "-c", "user.email=gitmanager@local",
       "merge",
       "--no-edit",
       headSha,

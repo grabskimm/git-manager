@@ -112,9 +112,9 @@ export async function runImplement(
     // Claude may have committed its own work, or left changes staged/unstaged.
     // Stage anything pending and commit it; if nothing is pending the commit is
     // skipped. Either way the final HEAD reflects all of Claude's work.
-    await runGit(worktree, ["add", "-A"]);
     const status = await runGit(worktree, ["status", "--porcelain"]);
     if (status.stdout.trim()) {
+      await runGit(worktree, ["add", "-A"]);
       const commit = await runGit(worktree, [
         "-c",
         "user.name=GitManager (Claude)",

@@ -8,18 +8,23 @@ export function claudeBin(): string {
   return process.env.GITMANAGER_CLAUDE_BIN || "claude";
 }
 
+let _internalCwd: string | null = null;
+
 /**
  * A dedicated cwd for all internal `claude --print` subprocess calls.
  * Using a fixed path inside GITMANAGER_HOME ensures the Claude Code agent
  * transcript discovery never picks up our review/chat sessions as user
  * sessions (they would otherwise pollute the agent observe panel).
+ * Result is cached for the lifetime of the process — the home dir is fixed.
  */
 function internalCwd(): string {
+  if (_internalCwd) return _internalCwd;
   const home = process.env.GITMANAGER_HOME ?? join(homedir(), ".gitmanager");
   const dir = join(home, ".internal");
   try {
     mkdirSync(dir, { recursive: true });
   } catch {}
+  _internalCwd = dir;
   return dir;
 }
 

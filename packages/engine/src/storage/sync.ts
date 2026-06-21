@@ -13,6 +13,20 @@ import { log, debug } from "../logger.js";
 
 const MAX_SNAPSHOTS = 10;
 
+// Per-backend promise chain acting as a mutex: concurrent pushRepo calls (e.g.
+// the scheduler and a "Back up now" HTTP request) serialize manifest
+// read-modify-write operations per backend to avoid the second write
+// overwriting entries added by the first.
+const backendLocks = new Map<string, Promise<void>>();
+
+function withBackendLock<T>(backendId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = backendLocks.get(backendId) ?? Promise.resolve();
+  let unlock!: () => void;
+  const held = new Promise<void>((res) => (unlock = res));
+  backendLocks.set(backendId, held);
+  return prev.then(fn).finally(unlock) as Promise<T>;
+}
+
 async function readJson<T>(backend: StorageBackend, key: string): Promise<T | null> {
   const buf = await backend.get(key);
   if (!buf) return null;
@@ -65,38 +79,43 @@ async function pushRepoToBackend(
   await backend.put(snapKey, bundle);
   debug(`sync: ${repo.display_name} → ${backend.label}: snapshot uploaded, updating index`);
 
-  // Update the per-repo index (snapshot history + latest), prune old snapshots.
-  const idx: RepoIndex =
-    (await readJson<RepoIndex>(backend, layout.repoIndex(prefix, repo.id))) ?? {
-      gmId: repo.id,
+  // Serialize the read-modify-write of the shared index and manifest per
+  // backend so concurrent pushRepo calls (scheduler + manual HTTP trigger)
+  // don't overwrite each other's entries.
+  return withBackendLock(cfg.id, async () => {
+    // Update the per-repo index (snapshot history + latest), prune old snapshots.
+    const idx: RepoIndex =
+      (await readJson<RepoIndex>(backend, layout.repoIndex(prefix, repo.id))) ?? {
+        gmId: repo.id,
+        name: repo.display_name,
+        defaultBranch: repo.default_branch,
+        latest: null,
+        snapshots: [],
+      };
+    idx.name = repo.display_name;
+    idx.defaultBranch = repo.default_branch;
+    idx.latest = snapKey;
+    idx.snapshots.unshift({ key: snapKey, timestamp: ts, headSha: sha } as SnapshotRef);
+    const prune = idx.snapshots.slice(MAX_SNAPSHOTS);
+    idx.snapshots = idx.snapshots.slice(0, MAX_SNAPSHOTS);
+    await writeJson(backend, layout.repoIndex(prefix, repo.id), idx);
+    for (const old of prune) await backend.del(old.key).catch(() => {});
+
+    // Update the top-level manifest.
+    const manifest: Manifest =
+      (await readJson<Manifest>(backend, layout.manifest(prefix))) ?? { updatedAt: ts, repos: {} };
+    manifest.repos[repo.id] = {
       name: repo.display_name,
       defaultBranch: repo.default_branch,
-      latest: null,
-      snapshots: [],
+      lastBackupAt: ts,
+      bytes: bundle.length,
     };
-  idx.name = repo.display_name;
-  idx.defaultBranch = repo.default_branch;
-  idx.latest = snapKey;
-  idx.snapshots.unshift({ key: snapKey, timestamp: ts, headSha: sha } as SnapshotRef);
-  const prune = idx.snapshots.slice(MAX_SNAPSHOTS);
-  idx.snapshots = idx.snapshots.slice(0, MAX_SNAPSHOTS);
-  await writeJson(backend, layout.repoIndex(prefix, repo.id), idx);
-  for (const old of prune) await backend.del(old.key).catch(() => {});
+    manifest.updatedAt = ts;
+    await writeJson(backend, layout.manifest(prefix), manifest);
 
-  // Update the top-level manifest.
-  const manifest: Manifest =
-    (await readJson<Manifest>(backend, layout.manifest(prefix))) ?? { updatedAt: ts, repos: {} };
-  manifest.repos[repo.id] = {
-    name: repo.display_name,
-    defaultBranch: repo.default_branch,
-    lastBackupAt: ts,
-    bytes: bundle.length,
-  };
-  manifest.updatedAt = ts;
-  await writeJson(backend, layout.manifest(prefix), manifest);
-
-  log(`sync: ${repo.display_name} → ${backend.label}: done (${bundle.length} bytes)`);
-  return { backend: backend.label, status: "ok", bytes: bundle.length, snapshotKey: snapKey };
+    log(`sync: ${repo.display_name} → ${backend.label}: done (${bundle.length} bytes)`);
+    return { backend: backend.label, status: "ok", bytes: bundle.length, snapshotKey: snapKey };
+  });
 }
 
 /** Back up one repo to every enabled backend. Never throws. */

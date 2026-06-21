@@ -2,16 +2,28 @@ import type { StorageBackend } from "./backend.js";
 import { loadDep, MissingDepError } from "./optionalDep.js";
 
 /**
- * How long any single Azure operation (auth + request) may take before we give
- * up. Without this, a stalled `DefaultAzureCredential` token probe or a hung
- * upload freezes the whole backup with no error. Override with
- * GITMANAGER_AZURE_TIMEOUT_MS.
+ * How long any single Azure data operation (upload/download/delete) may take
+ * before we give up. Override with GITMANAGER_AZURE_TIMEOUT_MS.
  */
 const OP_TIMEOUT_MS = Number(process.env.GITMANAGER_AZURE_TIMEOUT_MS) || 120_000;
+
+/**
+ * Shorter deadline for the readiness probe (credential acquisition + container
+ * ping). DefaultAzureCredential IMDS probes on non-Azure machines can stall for
+ * minutes; capping this separately avoids blocking the backup scheduler tick for
+ * up to 120s × N repos on machines that don't have Azure configured.
+ * Override with GITMANAGER_AZURE_READY_TIMEOUT_MS.
+ */
+const READY_TIMEOUT_MS = Number(process.env.GITMANAGER_AZURE_READY_TIMEOUT_MS) || 10_000;
 
 /** An abort signal that fires after `OP_TIMEOUT_MS`. */
 function timeoutSignal(): AbortSignal {
   return AbortSignal.timeout(OP_TIMEOUT_MS);
+}
+
+/** A short-lived abort signal for the readiness probe only. */
+function readyTimeoutSignal(): AbortSignal {
+  return AbortSignal.timeout(READY_TIMEOUT_MS);
 }
 
 /**
@@ -74,7 +86,7 @@ export class AzureBackend implements StorageBackend {
   async isReady(): Promise<{ ok: true } | { ok: false; reason: string }> {
     try {
       const c = await this.client();
-      await c.createIfNotExists({ abortSignal: timeoutSignal() });
+      await c.createIfNotExists({ abortSignal: readyTimeoutSignal() });
       return { ok: true };
     } catch (e) {
       if (e instanceof MissingDepError) return { ok: false, reason: e.message };
