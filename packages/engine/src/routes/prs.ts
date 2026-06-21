@@ -350,6 +350,8 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
         reply.code(400);
         return { error: "message_required" };
       }
+      // The message must be persisted to the thread BEFORE runImplement is
+      // called — it reads the thread via listThread to build the Claude prompt.
       addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
       ctx.hub.broadcast("pr.updated", { prId: pr.id });
       void runImplement(ctx.db, ctx.hub, repo, pr).then(() => {

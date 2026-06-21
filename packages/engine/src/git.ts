@@ -44,8 +44,8 @@ export function runGit(
     });
     if (opts.input !== undefined) {
       child.stdin.write(opts.input);
-      child.stdin.end();
     }
+    child.stdin.end();
   });
 }
 

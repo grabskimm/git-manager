@@ -35,8 +35,8 @@ export function Terminal({ repoId }: Props) {
     fitAddon.fit();
 
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${proto}//${window.location.host}/ws/terminal?token=${encodeURIComponent(getToken())}&repoId=${encodeURIComponent(repoId)}`;
-    const ws = new WebSocket(wsUrl);
+    const wsUrl = `${proto}//${window.location.host}/ws/terminal?repoId=${encodeURIComponent(repoId)}`;
+    const ws = new WebSocket(wsUrl, [getToken()]);
     ws.binaryType = "arraybuffer";
 
     ws.onopen = () => {

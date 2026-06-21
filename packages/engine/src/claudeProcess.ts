@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { log } from "./logger.js";
 
 /** Resolved at call time so tests and users can override the binary. */
 export function claudeBin(): string {
@@ -19,7 +20,9 @@ function internalCwd(): string {
   const dir = join(home, ".internal");
   try {
     mkdirSync(dir, { recursive: true });
-  } catch {}
+  } catch (e) {
+    log(`claudeProcess: could not create internal cwd ${dir}: ${(e as Error).message}`);
+  }
   return dir;
 }
 

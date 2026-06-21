@@ -125,7 +125,10 @@ export class TerminalServer {
         return;
       }
 
-      const provided = url.searchParams.get("token") ?? "";
+      const subproto = (req.headers["sec-websocket-protocol"] as string | undefined)
+        ?.split(",")[0]
+        ?.trim();
+      const provided = url.searchParams.get("token") ?? subproto ?? "";
       if (!provided || !safeEqual(provided, this.token)) {
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();

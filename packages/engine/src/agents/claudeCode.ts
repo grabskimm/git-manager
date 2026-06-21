@@ -8,9 +8,8 @@ import {
   type AgentSource,
   NotSupported,
 } from "./source.js";
+import { deriveStatus } from "./transcript.js";
 
-const RUNNING_WINDOW_MS = 45_000;
-const IDLE_WINDOW_MS = 15 * 60_000;
 const MAX_RECENT_EVENTS = 12;
 
 /** Locate the Claude Code projects directory, failing soft if absent. */
@@ -133,13 +132,6 @@ function redact(input: unknown): unknown {
     return out;
   }
   return input;
-}
-
-function deriveStatus(mtimeMs: number): AgentSession["status"] {
-  const age = Date.now() - mtimeMs;
-  if (age <= RUNNING_WINDOW_MS) return "running";
-  if (age <= IDLE_WINDOW_MS) return "idle";
-  return "done";
 }
 
 /**

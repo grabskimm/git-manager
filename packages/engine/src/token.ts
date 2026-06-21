@@ -27,8 +27,10 @@ export function loadOrCreateToken(): string {
 
 /** Constant-time string comparison to avoid timing leaks on the token. */
 export function safeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ab, bb);
+  // Hash both inputs so the digests are always the same length — the early
+  // `length !== length` short-circuit would otherwise reveal token length to
+  // an attacker probing the loopback port.
+  const ha = crypto.createHash("sha256").update(a).digest();
+  const hb = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(ha, hb);
 }

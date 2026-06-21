@@ -15,6 +15,10 @@ export function backendFromConfig(cfg: BackendConfig): StorageBackend {
       return new R2Backend(cfg.bucket);
     case "azure":
       return new AzureBackend(cfg.account, cfg.container);
+    default: {
+      // Runtime guard: unvalidated JSON can produce an unknown id.
+      throw new Error(`Unknown storage backend id: "${(cfg as { id?: string }).id}"`);
+    }
   }
 }
 

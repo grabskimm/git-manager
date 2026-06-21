@@ -42,9 +42,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string>("you");
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [theme, setTheme] = useState<Theme>(
-    () => (localStorage.getItem("gm_theme") as Theme) || "dark",
-  );
+  const [theme, setTheme] = useState<Theme>(() => {
+    const stored = localStorage.getItem("gm_theme");
+    return stored === "dark" || stored === "light" ? stored : "dark";
+  });
 
   const handlers = useRef(new Set<(e: WsEvent) => void>());
 
@@ -65,13 +66,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
   const reloadSourceDirs = useCallback(async () => {
-    setSourceDirs(await api.listSourceDirs());
+    try {
+      setSourceDirs(await api.listSourceDirs());
+    } catch {
+      // non-fatal: keep stale list
+    }
   }, []);
   const reloadConfig = useCallback(async () => {
-    setConfigState(await api.getConfig());
+    try {
+      setConfigState(await api.getConfig());
+    } catch {
+      // non-fatal: keep stale config
+    }
   }, []);
   const reloadAgents = useCallback(async () => {
-    setAgents(await api.agents());
+    try {
+      setAgents(await api.agents());
+    } catch {
+      // non-fatal: keep stale agents
+    }
   }, []);
 
   const setConfig = useCallback(async (patch: Partial<AppConfig>) => {

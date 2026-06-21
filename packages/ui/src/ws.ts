@@ -16,8 +16,8 @@ export function connectWs(onEvent: (e: WsEvent) => void): () => void {
 
   const open = (): void => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
-    const url = `${proto}://${location.host}/ws?token=${encodeURIComponent(getToken())}`;
-    ws = new WebSocket(url);
+    const url = `${proto}://${location.host}/ws`;
+    ws = new WebSocket(url, [getToken()]);
     ws.onmessage = (ev) => {
       try {
         onEvent(JSON.parse(ev.data) as WsEvent);

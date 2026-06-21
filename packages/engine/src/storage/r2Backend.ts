@@ -139,6 +139,7 @@ export class R2Backend implements StorageBackend {
   }
 
   async del(key: string): Promise<void> {
-    await this.run(["r2", "object", "delete", this.ref(key), "--remote"]);
+    const res = await this.run(["r2", "object", "delete", this.ref(key), "--remote"]);
+    if (res.code !== 0) throw new Error(`R2 delete failed (${res.code}): ${res.stderr}`);
   }
 }

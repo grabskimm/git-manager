@@ -114,7 +114,11 @@ export async function pushRepo(backends: BackendConfig[], repo: RepoLike): Promi
   } catch (e) {
     // e.g. an empty repo (no commits) — skip it without failing the batch.
     const reason = `could not bundle ${repo.display_name}: ${(e as Error).message}`;
-    return backends.map((cfg) => ({ backend: cfg.id, status: "skipped" as const, reason }));
+    return backends.map((cfg) => ({
+      backend: backendFromConfig(cfg).label,
+      status: "skipped" as const,
+      reason,
+    }));
   }
   const out: PushResult[] = [];
   for (const cfg of backends) {
@@ -126,8 +130,9 @@ export async function pushRepo(backends: BackendConfig[], repo: RepoLike): Promi
       // exactly what makes a backup look like it "succeeded" into an empty bucket.
       const err = e as { code?: string; statusCode?: number; message?: string };
       const reason = [err.code, err.statusCode, err.message].filter(Boolean).join(" ") || String(e);
-      log(`sync: ${repo.display_name} → ${cfg.id}: FAILED — ${reason}`);
-      out.push({ backend: cfg.id, status: "skipped", reason });
+      const label = backendFromConfig(cfg).label;
+      log(`sync: ${repo.display_name} → ${label}: FAILED — ${reason}`);
+      out.push({ backend: label, status: "skipped", reason });
     }
   }
   return out;
