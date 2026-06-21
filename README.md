@@ -82,7 +82,9 @@ npm run desktop:dist   # build local installers (packages/desktop/release/)
 ```
 
 See [`docs/desktop.md`](docs/desktop.md) for the framework decision, the release
-process (tag → build → publish → auto-update), and CI signing setup.
+process (tag → build → publish → auto-update), and CI signing setup, and
+[`docs/desktop-credentials.md`](docs/desktop-credentials.md) for generating the
+signing certificates and credentials.
 
 ### Put `gitm` on your PATH
 

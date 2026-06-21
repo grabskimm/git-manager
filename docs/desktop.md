@@ -168,6 +168,11 @@ All signing is **optional-by-secret**: if a secret is unset, the workflow still
 produces unsigned installers and logs a clear warning. Configure these as repository
 secrets to enable signing.
 
+> **Generating the certificates & credentials** — step-by-step instructions for
+> creating the Apple Developer ID cert, the notarization app-specific password, the
+> Windows Authenticode `.pfx` / Azure Trusted Signing setup, and adding each as a
+> GitHub secret live in **[`docs/desktop-credentials.md`](desktop-credentials.md)**.
+
 ### macOS — Developer ID signing + notarization + stapling
 
 | Secret | Purpose |
