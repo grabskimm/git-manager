@@ -93,6 +93,12 @@ npm run desktop
 npm run desktop:dist        # -> packages/desktop/release/
 ```
 
+`desktop:dist` (and `desktop:pack` for an unpacked `--dir` build) mirror the CI
+packaging steps: they stage a self-contained copy of the production deps under
+`packages/desktop` (so electron-builder's asar packer doesn't choke on the
+workspace symlink to `@gitmanager/engine`), rebuild better-sqlite3 for Electron,
+then restore the normal workspace afterward — see `packages/desktop/scripts/dist.mjs`.
+
 Notes:
 
 - The first `npm install` (with scripts enabled) downloads the Electron binary.
