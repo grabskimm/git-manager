@@ -107,15 +107,18 @@ export function App() {
   return (
     <div className={`app ${railCollapsed ? "rail-collapsed" : ""}`}>
       <aside className={`rail ${railCollapsed ? "collapsed" : ""}`}>
-        {/* Collapsed strip: expand + new-repo, vertically stacked. */}
+        {/* Collapsed strip: expand + quick nav, vertically stacked. */}
         <div className="rail-strip">
           <button
             className="icon-btn"
             onClick={() => setRailCollapsed(false)}
-            title="Expand sidebar"
+            title="Pin sidebar open"
           >
             ☰
           </button>
+          <NavLink to="/" className="icon-btn" title="Home" end>
+            ⌂
+          </NavLink>
           <button className="icon-btn" onClick={() => setNewRepo(true)} title="New repository (n)">
             ＋
           </button>
@@ -153,10 +156,10 @@ export function App() {
               />
               <button
                 className="icon-btn"
-                onClick={() => setRailCollapsed(true)}
-                title="Collapse sidebar"
+                onClick={() => setRailCollapsed((c) => !c)}
+                title={railCollapsed ? "Pin sidebar open" : "Auto-hide sidebar"}
               >
-                ‹
+                {railCollapsed ? "📌" : "‹"}
               </button>
             </div>
           </div>

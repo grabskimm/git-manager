@@ -30,11 +30,11 @@ export function RightSidebar() {
         <div className="rs-topbar">
           <button
             className="icon-btn"
-            onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
+            onClick={() => setCollapsed((c) => !c)}
+            title={collapsed ? "Pin sidebar open" : "Auto-hide sidebar"}
             style={{ fontSize: 13 }}
           >
-            ›
+            {collapsed ? "📌" : "›"}
           </button>
         </div>
 

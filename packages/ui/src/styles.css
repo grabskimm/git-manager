@@ -144,6 +144,7 @@ input:focus, textarea:focus, select:focus {
 
 /* ---- layout ---- */
 .app {
+  position: relative;
   display: grid;
   grid-template-columns: 264px 1fr auto;
   height: 100%;
@@ -157,7 +158,20 @@ input:focus, textarea:focus, select:focus {
   display: flex;
   flex-direction: column;
 }
-.main { overflow-y: auto; padding: 0; display: flex; flex-direction: column; }
+.main { overflow-y: auto; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+
+/* When collapsed, the rail becomes a thin overlay strip that slides open on
+   hover (the 50px grid column reserves its space so content never shifts). */
+.rail.collapsed {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 50px;
+  z-index: 40;
+  transition: width 0.18s ease, box-shadow 0.18s ease;
+}
+.rail.collapsed:hover { width: 264px; box-shadow: var(--shadow-lg); }
 
 /* Collapsed strip vs full rail body */
 .rail-strip { display: none; }
@@ -169,6 +183,8 @@ input:focus, textarea:focus, select:focus {
   padding: 12px 0;
 }
 .rail.collapsed .rail-full { display: none; }
+.rail.collapsed:hover .rail-strip { display: none; }
+.rail.collapsed:hover .rail-full { display: flex; }
 .rail-full {
   display: flex;
   flex-direction: column;
@@ -190,14 +206,6 @@ input:focus, textarea:focus, select:focus {
   border-top: 1px solid var(--border-muted);
   flex-shrink: 0;
 }
-.agent-panel {
-  width: 340px;
-  background: var(--bg-elev);
-  border-left: 1px solid var(--border);
-  overflow-y: auto;
-}
-.agent-panel.collapsed { width: 44px; }
-
 .rail-header {
   padding: 14px 14px 12px;
   border-bottom: 1px solid var(--border-muted);
@@ -412,13 +420,24 @@ input:focus, textarea:focus, select:focus {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  transition: width 0.2s ease;
+  transition: width 0.2s ease, box-shadow 0.2s ease;
 }
-.right-sidebar.collapsed { width: 40px; }
+/* Collapsed: a thin strip pinned to the right edge that slides open on hover. */
+.right-sidebar.collapsed {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  z-index: 40;
+}
+.right-sidebar.collapsed:hover { width: 320px; box-shadow: var(--shadow-lg); }
 
-/* Always-mounted body — hidden via display:none when collapsed */
+/* Always-mounted body — hidden via display:none when collapsed (shown on hover) */
 .right-sidebar.collapsed .rs-body { display: none; }
+.right-sidebar.collapsed:hover .rs-body { display: flex; }
 .right-sidebar:not(.collapsed) .rs-expand-btn { display: none; }
+.right-sidebar.collapsed:hover .rs-expand-btn { display: none; }
 
 /* Expand button shown in the 40px strip when collapsed */
 .rs-expand-btn {
@@ -510,12 +529,23 @@ input:focus, textarea:focus, select:focus {
 .agent-group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px 6px;
+  gap: 8px;
+  padding: 8px 14px 7px;
   background: var(--bg-elev-2);
   border-bottom: 1px solid var(--border-muted);
 }
-.agent-provider-icon { font-size: 11px; color: var(--accent); }
+.agent-provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
 .agent-provider-name {
   font-size: 11px;
   font-weight: 600;
@@ -544,7 +574,7 @@ input:focus, textarea:focus, select:focus {
 }
 .session-card:last-child { border-bottom: none; }
 .session-card:hover { background: var(--bg-elev-2); }
-.session-card.running { border-left-color: var(--green); }
+.session-card.running { border-left-color: var(--green); background: rgba(63, 185, 80, 0.045); }
 .session-card.idle    { border-left-color: var(--border); }
 .session-card.done,
 .session-card.waiting { border-left-color: var(--border-muted); }
@@ -710,24 +740,45 @@ input:focus, textarea:focus, select:focus {
   line-height: 1.55;
   padding: 4px 0;
 }
-.chat-msg { margin-bottom: 12px; }
+.chat-msg { margin-bottom: 14px; }
+.chat-msg.user { text-align: right; }
 .chat-role {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--fg-faint);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
+}
+.chat-msg.assistant .chat-role::before {
+  content: "◆";
+  color: var(--purple);
+  margin-right: 5px;
 }
 .chat-msg.user .chat-user-text {
-  background: var(--accent-bg);
+  background: linear-gradient(180deg, #3b82f6, var(--accent-bg));
   color: #fff;
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 13px 13px 4px 13px;
+  padding: 8px 12px;
   display: inline-block;
   white-space: pre-wrap;
   font-size: 13px;
+  text-align: left;
+  max-width: 90%;
+  box-shadow: var(--shadow-sm);
 }
 .chat-msg .markdown { padding: 0; font-size: 13px; }
+.chat-msg.assistant .markdown {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-muted);
+  border-radius: 13px 13px 13px 4px;
+  padding: 9px 12px;
+}
+.chat-msg.assistant > pre {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-muted);
+  border-radius: 13px 13px 13px 4px;
+  padding: 9px 12px;
+}
 .chat-input {
   border-top: 1px solid var(--border-muted);
   padding: 8px;
@@ -847,7 +898,10 @@ small.kbd {
 .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 22px; }
 
 /* ---- file browser ---- */
-.file-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+/* minmax(0, 1fr) lets the code column shrink below its content width so the
+   file viewer scrolls inside its pane instead of widening the whole page. */
+.file-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; align-items: start; }
+.file-layout > * { min-width: 0; }
 .file-tree {
   border: 1px solid var(--border);
   border-radius: var(--radius);
