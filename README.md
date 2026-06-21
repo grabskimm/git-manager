@@ -98,6 +98,7 @@ gitm scan                              # re-scan all source directories
 gitm repos                             # list ingested repositories
 gitm pr create                         # inside a tracked repo: auto-detects repo, branch, base, title
 gitm pr create --title "My change"    # explicit title; repo/branch/base still auto-detected
+gitm pr create --remote                # ALSO push the branch + open a PR on the forge via gh (opt-in)
 gitm pr create --repo <id|name> --base main --head feature --title "My change" [--description "…"]
 gitm pr list [--repo <id|name>]        # list pull requests
 gitm pr view <pr-id>                   # show a PR and its review thread
@@ -180,6 +181,18 @@ Merges are attempted in a **throwaway detached `git worktree`** so your checkout
 disturbed; on a clean result the base branch is advanced with a compare-and-swap
 `update-ref`. Conflicts are aborted cleanly and surfaced as "resolve locally" — there is no
 in-app conflict editor in v1. Merge logic is never hand-rolled; system `git` does the work.
+
+### Remote PRs (opt-in)
+
+By default everything is **local only** — `gitm pr create` and merge never touch a remote. If
+the repo has a GitHub `origin`, you can opt in per-PR (the **`--remote`** flag, or the *Also
+open on the remote* checkbox in the UI) to **also** push the head branch and open a real PR on
+GitHub via the **`gh` CLI** (your existing `gh auth login`; no tokens are stored). The Claude
+review still runs locally and is **also posted as a comment on the remote PR**. The remote PR
+URL is recorded and linked from the PR view. **Merging stays on the remote** — GitManager
+never pushes merges; you merge on GitHub. This is the only place GitManager reaches a forge,
+so it is strictly opt-in and a no-op (with a thread note) when `gh` isn't installed or the
+remote isn't GitHub.
 
 ## Claude review
 

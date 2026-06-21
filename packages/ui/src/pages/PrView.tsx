@@ -160,6 +160,11 @@ export function PrView() {
         {pr.merge_commit_sha && (
           <span className="sha">merged as {pr.merge_commit_sha.slice(0, 10)}</span>
         )}
+        {pr.remote_url && (
+          <a href={pr.remote_url} target="_blank" rel="noreferrer noopener" className="ref ref--pr">
+            ↗ remote PR
+          </a>
+        )}
       </div>
       {pr.description && <p className="subtle">{pr.description}</p>}
 

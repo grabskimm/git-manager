@@ -103,6 +103,7 @@ export const api = {
     description?: string;
     base_ref: string;
     head_ref: string;
+    remote?: boolean;
   }) => request<Pr>("/api/prs", { method: "POST", body: JSON.stringify(input) }),
   mergePr: (id: string) => request<Pr>(`/api/prs/${id}/merge`, { method: "POST" }),
   closePr: (id: string) => request<Pr>(`/api/prs/${id}/close`, { method: "POST" }),

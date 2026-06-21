@@ -7,9 +7,11 @@ import {
   getRepo,
   listPrs,
   listThread,
+  setPrRemoteUrl,
   updatePr,
 } from "../store.js";
 import { branchExists, revParse } from "../git.js";
+import { commentGitHubPr, createGitHubPr } from "../forge.js";
 import { attemptMerge, dryRunMerge } from "../merge.js";
 import { getConfig } from "../config.js";
 import { runReview, runReviewReply } from "../review.js";
@@ -36,6 +38,7 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
       description?: string;
       base_ref?: string;
       head_ref?: string;
+      remote?: boolean;
     };
   }>("/api/prs", async (req, reply) => {
     const { repo_id, title, base_ref, head_ref } = req.body ?? {};
@@ -76,12 +79,62 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
     });
     ctx.hub.broadcast("pr.created", { pr });
 
-    // Trigger the Claude review asynchronously (§10). Never blocks PR creation.
-    if (getConfig(ctx.db).review_on_pr_open) {
-      void runReview(ctx.db, ctx.hub, repo, pr).then(() => {
+    const remote = req.body?.remote === true;
+    const cfg = getConfig(ctx.db);
+
+    // Open the remote PR (opt-in) and run the Claude review asynchronously, so
+    // neither blocks the create response. The local PR is never blocked.
+    void (async () => {
+      let remoteUrl: string | null = null;
+      if (remote) {
+        const res = await createGitHubPr(repo.abs_path, {
+          base: base_ref,
+          head: head_ref,
+          title,
+          body: req.body?.description ?? "",
+        });
+        if (res.status === "created") {
+          remoteUrl = res.url;
+          setPrRemoteUrl(ctx.db, pr.id, res.url);
+          addThreadEntry(ctx.db, {
+            pr_id: pr.id,
+            author: "system",
+            kind: "status_change",
+            body: `Opened remote PR: ${res.url}`,
+          });
+        } else {
+          addThreadEntry(ctx.db, {
+            pr_id: pr.id,
+            author: "system",
+            kind: "status_change",
+            body: `Remote PR not created: ${res.reason}`,
+          });
+        }
         ctx.hub.broadcast("pr.updated", { prId: pr.id });
-      });
-    }
+      }
+
+      if (cfg.review_on_pr_open) {
+        const result = await runReview(ctx.db, ctx.hub, repo, pr);
+        ctx.hub.broadcast("pr.updated", { prId: pr.id });
+        // Mirror the review onto the remote PR when one was opened.
+        if (remoteUrl && result.status === "reviewed" && result.body) {
+          const ok = await commentGitHubPr(
+            repo.abs_path,
+            remoteUrl,
+            `🤖 **Claude review** (via GitManager)\n\n${result.body}`,
+          );
+          if (ok) {
+            addThreadEntry(ctx.db, {
+              pr_id: pr.id,
+              author: "system",
+              kind: "status_change",
+              body: "Posted the Claude review as a comment on the remote PR.",
+            });
+            ctx.hub.broadcast("pr.updated", { prId: pr.id });
+          }
+        }
+      }
+    })();
 
     return pr;
   });

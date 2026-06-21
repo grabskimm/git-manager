@@ -127,12 +127,18 @@ export function createPr(
     created_at: ts,
     updated_at: ts,
     merged_at: null,
+    remote_url: null,
   };
   db.prepare(
-    `INSERT INTO prs (id, repo_id, title, description, base_ref, head_ref, status, merge_commit_sha, created_at, updated_at, merged_at)
-     VALUES (@id, @repo_id, @title, @description, @base_ref, @head_ref, @status, @merge_commit_sha, @created_at, @updated_at, @merged_at)`,
+    `INSERT INTO prs (id, repo_id, title, description, base_ref, head_ref, status, merge_commit_sha, created_at, updated_at, merged_at, remote_url)
+     VALUES (@id, @repo_id, @title, @description, @base_ref, @head_ref, @status, @merge_commit_sha, @created_at, @updated_at, @merged_at, @remote_url)`,
   ).run(row);
   return row;
+}
+
+/** Record the remote PR URL on a local PR after it's opened on the forge. */
+export function setPrRemoteUrl(db: DB, id: string, url: string): void {
+  db.prepare("UPDATE prs SET remote_url=?, updated_at=? WHERE id=?").run(url, now(), id);
 }
 
 export function updatePr(

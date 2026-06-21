@@ -26,6 +26,7 @@ export function RepoView() {
   const [diff, setDiff] = useState<DiffResponse | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [remote, setRemote] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -93,6 +94,7 @@ export function RepoView() {
         description: description.trim() || undefined,
         base_ref: base,
         head_ref: head,
+        remote,
       });
       navigate(`/prs/${pr.id}`);
     } catch (e) {
@@ -178,9 +180,20 @@ export function RepoView() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+            <label className="toggle" style={{ fontSize: 13 }}>
+              <input type="checkbox" checked={remote} onChange={(e) => setRemote(e.target.checked)} />
+              <span>
+                Also open on the remote (push <span className="mono">{head || "head"}</span> &amp; create
+                a GitHub PR via <code>gh</code>)
+                <div className="faint" style={{ fontSize: 12 }}>
+                  Opt-in. Uses your <code>gh</code> login; the Claude review is also posted as a
+                  comment on the remote PR. Merge stays on the remote.
+                </div>
+              </span>
+            </label>
             <div className="row">
               <button className="primary" onClick={createPr} disabled={busy}>
-                {busy ? "Opening…" : "Open pull request"}
+                {busy ? "Opening…" : remote ? "Open local + remote PR" : "Open pull request"}
               </button>
               <span className="faint">Opening a PR triggers an automatic Claude review.</span>
             </div>

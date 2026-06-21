@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS prs (
   merge_commit_sha TEXT,
   created_at    TEXT NOT NULL,
   updated_at    TEXT NOT NULL,
-  merged_at     TEXT
+  merged_at     TEXT,
+  remote_url    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pr_thread (
@@ -80,8 +81,17 @@ export function openDb(file: string = dbPath()): DB {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(SCHEMA);
+  migrate(db);
   seedConfig(db);
   return db;
+}
+
+/** Additive migrations for DBs created before a column existed. */
+function migrate(db: DB): void {
+  const cols = db.prepare("PRAGMA table_info(prs)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "remote_url")) {
+    db.exec("ALTER TABLE prs ADD COLUMN remote_url TEXT");
+  }
 }
 
 function seedConfig(db: DB): void {

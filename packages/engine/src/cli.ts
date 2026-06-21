@@ -224,15 +224,20 @@ async function cmdPrCreate(flags: Record<string, string | true>): Promise<void> 
   if (head === base)
     throw new Error(`head and base are both "${head}". Nothing to merge.`);
 
+  const remote = flags.remote === true;
   const pr = await apiCall<Pr>("POST", "/api/prs", {
     repo_id: repo.id,
     base_ref: base,
     head_ref: head,
     title,
     description: str(flags.description),
+    remote,
   });
+  const remoteNote = remote
+    ? "\n  --remote: pushing & opening a PR on the forge via gh (see the thread for status)"
+    : "";
   process.stdout.write(
-    `Opened PR ${pr.id}\n  ${pr.head_ref} -> ${pr.base_ref}  (${repo.display_name})\n  Title: ${pr.title}\n  A Claude review is running; view it at ${origin()}/prs/${pr.id}\n`,
+    `Opened PR ${pr.id}\n  ${pr.head_ref} -> ${pr.base_ref}  (${repo.display_name})\n  Title: ${pr.title}${remoteNote}\n  A Claude review is running; view it at ${origin()}/prs/${pr.id}\n`,
   );
 }
 
@@ -380,8 +385,9 @@ function help(): void {
       "  gitm scan                            Re-scan all source directories",
       "  gitm repos                           List ingested repositories",
       "  gitm pr list [--repo <id|name>]      List pull requests",
-      "  gitm pr create [--repo <id|name>] [--base <ref>] [--head <ref>] [--title <t>] [--description <d>]",
-      "                                   (inside a tracked repo, all flags are optional)",
+      "  gitm pr create [--repo <id|name>] [--base <ref>] [--head <ref>] [--title <t>] [--description <d>] [--remote]",
+      "                                   (inside a tracked repo, all flags are optional;",
+      "                                    --remote also pushes & opens a PR on the forge via gh)",
       "  gitm pr view <pr-id>                 Show a PR and its review thread",
       "  gitm pr merge <pr-id>                Merge a PR (ff / merge-commit)",
       "  gitm pr close <pr-id>                Close a PR",

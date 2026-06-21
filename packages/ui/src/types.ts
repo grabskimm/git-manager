@@ -29,6 +29,7 @@ export interface Pr {
   created_at: string;
   updated_at: string;
   merged_at: string | null;
+  remote_url: string | null;
 }
 
 export interface PrThreadEntry {
