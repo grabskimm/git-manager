@@ -84,7 +84,38 @@ export async function createGitHubPr(
   // Push the head branch (idempotent; sets upstream).
   const push = await runGit(repoPath, ["push", "-u", "origin", opts.head]);
   if (push.code !== 0) {
-    return { status: "skipped", reason: `\`git push\` failed: ${push.stderr.trim()}` };
+    const nonFastForward = /\[rejected\]|non-fast-forward|fetch first/i.test(push.stderr);
+    if (!nonFastForward) {
+      return { status: "skipped", reason: `\`git push\` failed: ${push.stderr.trim()}` };
+    }
+    // The remote branch has commits the local branch lacks — commonly leftover
+    // history from a previously closed PR on the same branch name. Never
+    // force-push (that would discard remote work). Instead, check whether the
+    // remote already contains everything we have locally; if so the branch is
+    // simply ahead and we can open the PR from it without pushing. Otherwise the
+    // histories have genuinely diverged and the user must reconcile.
+    await runGit(repoPath, ["fetch", "origin", opts.head]).catch(() => undefined);
+    const local = (await runGit(repoPath, ["rev-parse", opts.head])).stdout.trim();
+    const remoteRef = `origin/${opts.head}`;
+    const ancestor = await runGit(repoPath, [
+      "merge-base",
+      "--is-ancestor",
+      local,
+      remoteRef,
+    ]).catch(() => ({ code: 1 }) as { code: number });
+    if (ancestor.code !== 0) {
+      return {
+        status: "skipped",
+        reason:
+          `The remote branch \`${opts.head}\` has commits your local branch doesn't have ` +
+          `(often leftover history from a previously closed PR on the same branch). ` +
+          `GitManager won't force-push. Reconcile first — e.g. ` +
+          `\`git pull --rebase origin ${opts.head}\` then retry, or use a new branch name. ` +
+          `(git: ${push.stderr.trim()})`,
+      };
+    }
+    // Remote is ahead and already contains our local commits → fall through and
+    // open the PR from the existing remote branch.
   }
 
   const create = await run(
