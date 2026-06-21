@@ -6,6 +6,7 @@ import { DiffViewer } from "../components/DiffViewer";
 import { StatusBadge } from "../components/StatusBadge";
 import { FileBrowser } from "../components/FileBrowser";
 import { Terminal } from "../components/Terminal";
+import { RepoBackup } from "../components/RepoBackup";
 import type { Branch, Commit, DiffResponse, Pr, Repo } from "../types";
 
 type Tab = "files" | "prs" | "commits" | "terminal";
@@ -125,7 +126,10 @@ export function RepoView() {
             {repo.abs_path}
           </div>
         </div>
-        <span className="ref">{repo.default_branch ?? "—"}</span>
+        <div className="col-end">
+          <span className="ref">{repo.default_branch ?? "—"}</span>
+          <RepoBackup repoId={repoId} />
+        </div>
       </div>
 
       <div className="tabs">
