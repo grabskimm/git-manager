@@ -47,17 +47,16 @@ export function AgentPanel() {
 
   return (
     <div className="agents-section">
-      {/* ---- header ---- */}
-      <div className="agents-header">
-        <div className="row" style={{ gap: 8 }}>
-          <span className="agents-title">Agents</span>
-          {enabled && sessions.length > 0 && (
+      {/* ---- header (only when observing; tab already labels "Agents") ---- */}
+      {enabled && (
+        <div className="agents-header">
+          <span className="agents-title">Sessions</span>
+          {sessions.length > 0 && (
             <span className={`agents-count-pill ${running > 0 ? "running" : ""}`}>
               {running > 0 ? `${running} running` : `${sessions.length} idle`}
             </span>
           )}
-        </div>
-        {enabled && (
+          <span className="spacer" />
           <button
             className="icon-btn"
             style={{ fontSize: 13, padding: "3px 7px" }}
@@ -66,8 +65,8 @@ export function AgentPanel() {
           >
             ↻
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ---- not enabled ---- */}
       {!enabled && (

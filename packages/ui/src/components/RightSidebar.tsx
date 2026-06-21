@@ -1,33 +1,66 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../state";
 import { AgentPanel } from "./AgentPanel";
 import { ChatPanel } from "./ChatPanel";
 
+type Tab = "chat" | "agents";
+
 /**
- * Right column: agents on top, repo chat below.
- *
- * Both panels are ALWAYS mounted so chat state (history, streaming tokens)
- * survives a sidebar collapse. Collapse / chat-minimize are CSS-only toggles.
+ * Right column: Chat and Agents as tabs (not stacked) so each gets the full
+ * height/width of the panel. Both stay mounted — switching tabs is a CSS
+ * show/hide — so chat history and streaming survive a tab switch or collapse.
  */
 export function RightSidebar() {
-  const { config } = useApp();
+  const { config, agents } = useApp();
+  const chatEnabled = config?.chat_enabled ?? false;
+
   const [collapsed, setCollapsed] = useState(false);
-  const [chatMinimized, setChatMinimized] = useState(false);
+  const [tab, setTab] = useState<Tab>("chat");
+  const [unread, setUnread] = useState(false);
+
+  // Fall back to the Agents tab whenever chat is turned off.
+  useEffect(() => {
+    if (!chatEnabled) setTab("agents");
+  }, [chatEnabled]);
+
+  const running = useMemo(
+    () => (agents?.sessions ?? []).filter((s) => s.status === "running").length,
+    [agents],
+  );
+
+  const openChat = () => {
+    setTab("chat");
+    setUnread(false);
+  };
 
   return (
     <aside className={`right-sidebar ${collapsed ? "collapsed" : ""}`}>
-      {/* Expand handle — only visible when collapsed */}
+      {/* Collapsed strip handle (also a peek-on-hover target via CSS) */}
       <button
         className="rs-expand-btn"
         onClick={() => setCollapsed(false)}
-        title="Open agents & chat"
+        title="Open chat & agents"
       >
-        🤖
+        {running > 0 ? "🟢" : chatEnabled ? "💬" : "🤖"}
       </button>
 
-      {/* Body always mounted; hidden by CSS when collapsed */}
       <div className="rs-body">
-        <div className="rs-topbar">
+        <div className="rs-tabs">
+          {chatEnabled && (
+            <button className={`rs-tab ${tab === "chat" ? "active" : ""}`} onClick={openChat}>
+              💬 Chat
+              {unread && tab !== "chat" && <span className="rs-unread" title="New reply" />}
+            </button>
+          )}
+          <button
+            className={`rs-tab ${tab === "agents" ? "active" : ""}`}
+            onClick={() => setTab("agents")}
+          >
+            🤖 Agents
+            {running > 0 && <span className="rs-tab-badge running">{running}</span>}
+          </button>
+
+          <span className="spacer" />
           <button
             className="icon-btn"
             onClick={() => setCollapsed((c) => !c)}
@@ -38,16 +71,16 @@ export function RightSidebar() {
           </button>
         </div>
 
-        <div className="agents-scroll">
-          <AgentPanel />
+        <div className="rs-panels">
+          <div className={`rs-panel rs-panel--scroll ${tab !== "agents" ? "hidden" : ""}`}>
+            <AgentPanel />
+          </div>
+          {chatEnabled && (
+            <div className={`rs-panel ${tab !== "chat" ? "hidden" : ""}`}>
+              <ChatPanel active={tab === "chat"} onActivity={() => setUnread(true)} />
+            </div>
+          )}
         </div>
-
-        {config?.chat_enabled && (
-          <ChatPanel
-            minimized={chatMinimized}
-            onToggleMinimize={() => setChatMinimized((m) => !m)}
-          />
-        )}
       </div>
     </aside>
   );

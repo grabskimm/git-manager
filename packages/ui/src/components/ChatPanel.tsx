@@ -9,8 +9,10 @@ interface Msg {
 }
 
 interface Props {
-  minimized: boolean;
-  onToggleMinimize: () => void;
+  /** Whether the chat tab is currently visible (drives unread bubbling). */
+  active: boolean;
+  /** Called when a reply arrives while the chat tab isn't visible. */
+  onActivity: () => void;
 }
 
 const MODELS: { value: string; label: string }[] = [
@@ -20,13 +22,18 @@ const MODELS: { value: string; label: string }[] = [
   { value: "haiku", label: "Haiku" },
 ];
 
-export function ChatPanel({ minimized, onToggleMinimize }: Props) {
+const SUGGESTIONS = [
+  "Which repos changed most recently?",
+  "Summarize what I worked on this week",
+  "Any repos with uncommitted-looking churn?",
+];
+
+export function ChatPanel({ active, onActivity }: Props) {
   const { onWs, repos, userName } = useApp();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [hasActivity, setHasActivity] = useState(false);
   const [model, setModel] = useState<string>(() => localStorage.getItem("gm_chat_model") ?? "");
   const [selectedRepo, setSelectedRepo] = useState<string>(
     () => localStorage.getItem("gm_chat_repo") ?? "",
@@ -34,12 +41,11 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
   const activeId = useRef<string | null>(null);
   const streamRef = useRef("");
   const bodyRef = useRef<HTMLDivElement>(null);
-  const minimizedRef = useRef(minimized);
+  const activeRef = useRef(active);
 
   useEffect(() => {
-    minimizedRef.current = minimized;
-    if (!minimized) setHasActivity(false);
-  }, [minimized]);
+    activeRef.current = active;
+  }, [active]);
 
   useEffect(() => {
     return onWs((e) => {
@@ -55,7 +61,7 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
         streamRef.current = "";
         activeId.current = null;
         setBusy(false);
-        if (minimizedRef.current) setHasActivity(true);
+        if (!activeRef.current) onActivity();
       } else if (e.type === "chat.skipped") {
         setMessages((m) => [
           ...m,
@@ -65,18 +71,17 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
         streamRef.current = "";
         activeId.current = null;
         setBusy(false);
-        if (minimizedRef.current) setHasActivity(true);
+        if (!activeRef.current) onActivity();
       }
     });
-  }, [onWs]);
+  }, [onWs, onActivity]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
   }, [messages, streaming]);
 
-  const send = async () => {
-    const text = input.trim();
-    if (!text || busy) return;
+  const sendText = async (text: string) => {
+    if (!text.trim() || busy) return;
     const history = messages.slice(-12);
     setMessages((m) => [...m, { role: "user", content: text }]);
     setInput("");
@@ -93,23 +98,10 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
     }
   };
 
-  return (
-    <div className={`chat-panel ${minimized ? "chat-minimized" : ""}`}>
-      <div className="chat-head">
-        <div className="row" style={{ gap: 6 }}>
-          <span className="chat-title">Chat</span>
-          {hasActivity && minimized && <span className="chat-unread-dot" title="New response" />}
-        </div>
-        <button
-          className="icon-btn"
-          onClick={onToggleMinimize}
-          title={minimized ? "Expand chat" : "Minimize chat"}
-          style={{ fontSize: 12, padding: "3px 7px" }}
-        >
-          {minimized ? "▲" : "▼"}
-        </button>
-      </div>
+  const scopeName = repos.find((r) => r.id === selectedRepo)?.display_name;
 
+  return (
+    <div className="chat-panel">
       <div className="chat-controls">
         <select
           className="chat-scope-select"
@@ -144,13 +136,23 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
         </select>
       </div>
 
-      {/* Body and input stay mounted; hidden via CSS when minimized */}
       <div className="chat-body" ref={bodyRef}>
         {messages.length === 0 && streaming === null && (
-          <div className="chat-hint">
-            {selectedRepo
-              ? "Ask about the selected repository. Switch the scope above to ask across all repos."
-              : 'Ask about any of your repositories — e.g. "which repos changed most recently?". Use the scope selector above to focus on a single repo. Context is read-only metadata.'}
+          <div className="chat-empty">
+            <div className="chat-empty-icon">💬</div>
+            <div className="chat-empty-title">Ask about your repositories</div>
+            <div className="chat-empty-sub">
+              {scopeName
+                ? `Scoped to ${scopeName}. Switch scope above to ask across all repos.`
+                : "Read-only metadata — branches, recent commits, paths. Pick a single repo above to focus."}
+            </div>
+            <div className="chat-chips">
+              {SUGGESTIONS.map((s) => (
+                <button key={s} className="chat-chip" onClick={() => void sendText(s)} disabled={busy}>
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {messages.map((m, i) => (
@@ -176,21 +178,17 @@ export function ChatPanel({ minimized, onToggleMinimize }: Props) {
       <div className="chat-input">
         <textarea
           rows={2}
-          placeholder={
-            selectedRepo
-              ? `Ask about ${repos.find((r) => r.id === selectedRepo)?.display_name ?? "this repo"}…`
-              : "Ask about your repos…"
-          }
+          placeholder={scopeName ? `Ask about ${scopeName}…` : "Ask about your repos…"}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              void send();
+              void sendText(input);
             }
           }}
         />
-        <button className="primary" disabled={!input.trim() || busy} onClick={send}>
+        <button className="primary" disabled={!input.trim() || busy} onClick={() => void sendText(input)}>
           {busy ? "…" : "Send"}
         </button>
       </div>
