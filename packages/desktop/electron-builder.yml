@@ -82,6 +82,10 @@ dmg:
 linux:
   category: Development
   maintainer: GitManager
+  # Clean names so the .deb package isn't derived from the scoped npm name
+  # ("@gitmanager/desktop", which is invalid for a Debian package / filename).
+  executableName: gitmanager
+  artifactName: ${productName}-${version}-${arch}.${ext}
   target:
     - target: AppImage
       arch: [x64]

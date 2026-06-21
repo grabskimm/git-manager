@@ -50,7 +50,30 @@ export function UpdateBanner() {
     return () => offs.forEach((off) => off());
   }, [d]);
 
-  if (!d || phase === "idle" || !info) return null;
+  if (!d || phase === "idle") return null;
+
+  // The error phase carries no update info (e.g. a check fails before any
+  // update is discovered), so render it independently of `info`.
+  if (phase === "error") {
+    return (
+      <div className="banner info update-banner" role="status">
+        <div className="update-banner-text">
+          Update failed{errorMsg ? `: ${errorMsg}` : ""}.
+        </div>
+        <div className="update-banner-actions">
+          <button className="primary" onClick={() => void d.checkForUpdates()}>
+            Retry
+          </button>
+          <button className="ghost" onClick={() => setPhase("idle")}>
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // The remaining phases (available / downloading / downloaded) all need info.
+  if (!info) return null;
 
   const later = () => {
     dismiss(info.version);
@@ -103,22 +126,6 @@ export function UpdateBanner() {
             </button>
             <button className="ghost" onClick={later}>
               Later
-            </button>
-          </div>
-        </>
-      )}
-
-      {phase === "error" && (
-        <>
-          <div className="update-banner-text">
-            Update failed{errorMsg ? `: ${errorMsg}` : ""}.
-          </div>
-          <div className="update-banner-actions">
-            <button className="primary" onClick={() => void d.checkForUpdates()}>
-              Retry
-            </button>
-            <button className="ghost" onClick={() => setPhase("idle")}>
-              Dismiss
             </button>
           </div>
         </>

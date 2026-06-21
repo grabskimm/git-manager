@@ -167,6 +167,37 @@ function createSplash(): void {
   void splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 }
 
+/** Escape text destined for an HTML context (the data: fatal-error screen). */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Compare a URL against the engine's loopback origin by parsed components. */
+function isEngineOrigin(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" && u.hostname === HOST && u.port === String(enginePort);
+  } catch {
+    return false;
+  }
+}
+
+/** Open a URL in the system browser only if it is http(s); otherwise drop it. */
+function openExternalSafely(url: string): void {
+  try {
+    const { protocol } = new URL(url);
+    if (protocol === "http:" || protocol === "https:") void shell.openExternal(url);
+    else log.warn(`refusing to open non-http(s) URL: ${url}`);
+  } catch {
+    log.warn(`refusing to open malformed URL: ${url}`);
+  }
+}
+
 function showFatal(message: string): void {
   const win = mainWindow ?? splashWindow;
   const html = `<!doctype html><html><head><meta charset="utf-8">
@@ -174,7 +205,7 @@ function showFatal(message: string): void {
   font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;
   flex-direction:column;gap:12px;padding:24px;text-align:center}
   h1{color:#f85149;font-size:18px;margin:0}p{color:#8b949e;max-width:34rem}</style>
-</head><body><h1>GitManager could not start</h1><p>${message}</p>
+</head><body><h1>GitManager could not start</h1><p>${escapeHtml(message)}</p>
 <p>See the logs for details (Help &rarr; Open logs folder).</p></body></html>`;
   if (win && !win.isDestroyed()) {
     void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
@@ -201,14 +232,15 @@ function createMainWindow(): void {
   });
 
   // Lock the webview down: no new windows, no navigation off the loopback origin.
+  // Only ever hand http(s) URLs to the OS — never javascript:/file:/custom schemes.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url); // links (release notes etc.) open in the browser
+    openExternalSafely(url); // links (release notes etc.) open in the browser
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (e, url) => {
-    if (!url.startsWith(`http://${HOST}:${enginePort}`)) {
+    if (!isEngineOrigin(url)) {
       e.preventDefault();
-      void shell.openExternal(url);
+      openExternalSafely(url);
     }
   });
 
@@ -301,10 +333,16 @@ function stopEngine(): void {
   log.info("stopping engine");
   const child = engine;
   engine = null;
+  // Track the real exit — `child.killed` only means a signal was delivered, not
+  // that the process is gone, so it can't gate the SIGKILL fallback.
+  let exited = false;
+  child.once("exit", () => {
+    exited = true;
+  });
   child.kill("SIGTERM");
-  // Hard-kill if it hasn't exited shortly after SIGTERM.
+  // Hard-kill if it's still alive shortly after SIGTERM (hung engine).
   setTimeout(() => {
-    if (!child.killed) child.kill("SIGKILL");
+    if (!exited) child.kill("SIGKILL");
   }, 3000);
 }
 

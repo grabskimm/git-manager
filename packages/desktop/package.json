@@ -5,6 +5,7 @@
   "description": "GitManager desktop shell — runs the existing engine + UI headlessly in a native window, with auto-update.",
   "main": "dist/main.js",
   "author": "GitManager",
+  "homepage": "https://github.com/grabskimm/git-manager",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
