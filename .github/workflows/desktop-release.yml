@@ -43,6 +43,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    # Hard cap so a stuck native build can never run for hours and burn minutes
+    # (macOS runners bill at 10x). A healthy build finishes well under this.
+    timeout-minutes: 40
+
     env:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
       HAS_WIN_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
