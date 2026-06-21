@@ -2,19 +2,110 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type SyncStatus, type SyncPushRepo } from "../api";
 import { useApp } from "../state";
 
-const EXAMPLE = {
-  backends: [
-    { id: "fs", enabled: true, dir: "~/gitmanager-backups", prefix: "gitmanager" },
-    { id: "s3", enabled: false, bucket: "my-bucket", region: "us-east-1", prefix: "gitmanager" },
-    { id: "r2", enabled: false, bucket: "my-r2-bucket", prefix: "gitmanager" },
-    { id: "azure", enabled: false, account: "myacct", container: "gitmanager", prefix: "" },
-  ],
-};
+type ProviderId = "fs" | "s3" | "r2" | "azure";
+
+interface FieldDef {
+  key: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+}
+interface ProviderDef {
+  id: ProviderId;
+  label: string;
+  auth: string;
+  fields: FieldDef[];
+}
+
+const PROVIDERS: ProviderDef[] = [
+  {
+    id: "fs",
+    label: "Local folder / NAS",
+    auth: "Writes to a local path — no login required.",
+    fields: [
+      { key: "dir", label: "Directory", required: true, placeholder: "~/gitmanager-backups" },
+      { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },
+    ],
+  },
+  {
+    id: "s3",
+    label: "AWS S3 (or S3-compatible)",
+    auth: "Uses your AWS login (default credential chain / `aws sso login`).",
+    fields: [
+      { key: "bucket", label: "Bucket", required: true, placeholder: "my-bucket" },
+      { key: "region", label: "Region", required: false, placeholder: "us-east-1" },
+      { key: "endpoint", label: "Endpoint (S3-compatible only)", required: false, placeholder: "https://…" },
+      { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },
+    ],
+  },
+  {
+    id: "r2",
+    label: "Cloudflare R2",
+    auth: "Uses `wrangler login` — no access keys stored.",
+    fields: [
+      { key: "bucket", label: "R2 bucket", required: true, placeholder: "my-r2-bucket" },
+      { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },
+    ],
+  },
+  {
+    id: "azure",
+    label: "Azure Blob Storage",
+    auth: "Uses `az login` (DefaultAzureCredential).",
+    fields: [
+      { key: "account", label: "Storage account", required: true, placeholder: "myaccount" },
+      { key: "container", label: "Container", required: true, placeholder: "gitmanager" },
+      { key: "prefix", label: "Prefix", required: false, placeholder: "" },
+    ],
+  },
+];
+
+type Entry = { enabled: boolean; values: Record<string, string> };
+type FormState = Record<ProviderId, Entry>;
+
+function emptyForm(): FormState {
+  return {
+    fs: { enabled: false, values: {} },
+    s3: { enabled: false, values: {} },
+    r2: { enabled: false, values: {} },
+    azure: { enabled: false, values: {} },
+  };
+}
+
+function formFromBackends(backends: Record<string, unknown>[]): FormState {
+  const form = emptyForm();
+  for (const b of backends) {
+    const id = b.id as ProviderId;
+    if (!form[id]) continue;
+    const values: Record<string, string> = {};
+    for (const f of PROVIDERS.find((p) => p.id === id)!.fields) {
+      const v = b[f.key];
+      if (typeof v === "string") values[f.key] = v;
+    }
+    form[id] = { enabled: Boolean(b.enabled), values };
+  }
+  return form;
+}
+
+function backendsFromForm(form: FormState): { backends: Record<string, unknown>[] } {
+  const backends: Record<string, unknown>[] = [];
+  for (const p of PROVIDERS) {
+    const e = form[p.id];
+    const hasData = Object.values(e.values).some((v) => v?.trim());
+    if (!e.enabled && !hasData) continue; // keep config only if used/filled
+    const entry: Record<string, unknown> = { id: p.id, enabled: e.enabled };
+    for (const f of p.fields) {
+      const v = e.values[f.key]?.trim();
+      if (v) entry[f.key] = v;
+    }
+    backends.push(entry);
+  }
+  return { backends };
+}
 
 export function BackupSettings() {
   const { config, setConfig } = useApp();
+  const [form, setForm] = useState<FormState>(emptyForm());
   const [status, setStatus] = useState<SyncStatus | null>(null);
-  const [json, setJson] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -31,26 +122,33 @@ export function BackupSettings() {
   useEffect(() => {
     void api
       .getSyncConfig()
-      .then((c) => setJson(JSON.stringify(c.backends?.length ? c : EXAMPLE, null, 2)))
-      .catch(() => setJson(JSON.stringify(EXAMPLE, null, 2)));
+      .then((c) => setForm(formFromBackends((c.backends as Record<string, unknown>[]) ?? [])))
+      .catch(() => setForm(emptyForm()));
     void reload();
   }, [reload]);
 
-  const saveConfig = async () => {
+  const setEnabled = (id: ProviderId, enabled: boolean) =>
+    setForm((f) => ({ ...f, [id]: { ...f[id], enabled } }));
+  const setValue = (id: ProviderId, key: string, value: string) =>
+    setForm((f) => ({ ...f, [id]: { ...f[id], values: { ...f[id].values, [key]: value } } }));
+
+  const save = async () => {
     setErr(null);
     setMsg(null);
-    let parsed: { backends: unknown[] };
-    try {
-      parsed = JSON.parse(json);
-      if (!Array.isArray(parsed.backends)) throw new Error("`backends` must be an array");
-    } catch (e) {
-      setErr(`Invalid JSON: ${(e as Error).message}`);
-      return;
+    // Validate required fields for enabled providers.
+    for (const p of PROVIDERS) {
+      if (!form[p.id].enabled) continue;
+      for (const field of p.fields) {
+        if (field.required && !form[p.id].values[field.key]?.trim()) {
+          setErr(`${p.label}: “${field.label}” is required.`);
+          return;
+        }
+      }
     }
     setBusy(true);
     try {
-      await api.setSyncConfig(parsed);
-      setMsg("Saved storage config.");
+      await api.setSyncConfig(backendsFromForm(form));
+      setMsg("Saved backup destinations.");
       await reload();
     } catch (e) {
       setErr((e as Error).message);
@@ -65,8 +163,7 @@ export function BackupSettings() {
     setMsg(null);
     setPushed(null);
     try {
-      const res = await api.syncPush();
-      setPushed(res.pushed);
+      setPushed((await api.syncPush()).pushed);
       await reload();
     } catch (e) {
       setErr((e as Error).message);
@@ -74,6 +171,8 @@ export function BackupSettings() {
       setBusy(false);
     }
   };
+
+  const readyById = (id: string) => status?.backends.find((b) => b.id === id)?.ready;
 
   if (!config) return null;
 
@@ -85,10 +184,90 @@ export function BackupSettings() {
         Back up each repo as a <code>git bundle</code> to object storage (S3, Cloudflare R2, Azure,
         or a local folder) so you can move between devices without GitHub. Git stays{" "}
         <strong>local</strong>; storage only holds backups. Credentials come from your provider
-        logins (<code>aws sso login</code>, <code>wrangler login</code>, <code>az login</code>) —
-        no keys are stored here.
+        logins — <strong>no keys are stored here</strong>.
       </p>
 
+      <h3 style={{ fontSize: 14, margin: "16px 0 8px" }}>Backup destinations</h3>
+      <p className="subtle" style={{ fontSize: 13 }}>
+        Tick the providers you want, then fill in their fields. Multiple destinations are written on
+        every backup.
+      </p>
+
+      <div className="stack">
+        {PROVIDERS.map((p) => {
+          const e = form[p.id];
+          const ready = readyById(p.id);
+          return (
+            <div key={p.id} className="card" style={{ padding: 12 }}>
+              <label className="toggle" style={{ alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={e.enabled}
+                  onChange={(ev) => setEnabled(p.id, ev.target.checked)}
+                />
+                <span>
+                  <strong>{p.label}</strong>
+                  {e.enabled && ready && (
+                    <span
+                      className="ref"
+                      style={{
+                        marginLeft: 8,
+                        color: ready.ok ? "var(--green)" : "var(--red)",
+                        borderColor: ready.ok ? "var(--green)" : "var(--red)",
+                      }}
+                    >
+                      {ready.ok ? "ready" : "not ready"}
+                    </span>
+                  )}
+                  <div className="faint" style={{ fontSize: 12 }}>
+                    {p.auth}
+                  </div>
+                </span>
+              </label>
+
+              {e.enabled && (
+                <div className="stack" style={{ marginTop: 10, paddingLeft: 26 }}>
+                  {p.fields.map((f) => (
+                    <div key={f.key} className="row" style={{ gap: 8 }}>
+                      <span className="faint" style={{ width: 180, fontSize: 13 }}>
+                        {f.label}
+                        {f.required && <span style={{ color: "var(--red)" }}> *</span>}
+                      </span>
+                      <input
+                        value={e.values[f.key] ?? ""}
+                        placeholder={f.placeholder}
+                        onChange={(ev) => setValue(p.id, f.key, ev.target.value)}
+                      />
+                    </div>
+                  ))}
+                  {e.enabled && ready && !ready.ok && (
+                    <div className="faint" style={{ fontSize: 12, color: "var(--red)" }}>
+                      {ready.reason}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="primary" onClick={save} disabled={busy}>
+          Save destinations
+        </button>
+        <button onClick={pushNow} disabled={busy}>
+          {busy ? "Backing up…" : "Back up all now"}
+        </button>
+        <button onClick={() => void reload()} disabled={busy}>
+          Refresh status
+        </button>
+      </div>
+      {msg && <div className="banner info" style={{ marginTop: 8 }}>{msg}</div>}
+      {err && <div className="banner error" style={{ marginTop: 8 }}>{err}</div>}
+
+      <hr className="sep" />
+      <h3 style={{ fontSize: 14, margin: "8px 0" }}>Schedule</h3>
       <div className="stack">
         <label className="toggle">
           <input
@@ -99,7 +278,7 @@ export function BackupSettings() {
           <span>
             Scheduled backup (opt-in)
             <div className="faint" style={{ fontSize: 12 }}>
-              Push every tracked repo to all enabled backends on an interval. Off = manual only.
+              Push every tracked repo to all enabled destinations on an interval. Off = manual only.
             </div>
           </span>
         </label>
@@ -118,56 +297,10 @@ export function BackupSettings() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 14, margin: "16px 0 6px" }}>Backends</h3>
-      <p className="subtle" style={{ fontSize: 13 }}>
-        Configure one or more targets. <code>id</code> is one of <code>fs</code>, <code>s3</code>,{" "}
-        <code>r2</code>, <code>azure</code>. Multiple enabled backends are written to on every push.
-      </p>
-      <textarea
-        rows={10}
-        className="mono"
-        value={json}
-        onChange={(e) => setJson(e.target.value)}
-        style={{ fontSize: 12 }}
-      />
-      <div className="row" style={{ marginTop: 8 }}>
-        <button className="primary" onClick={saveConfig} disabled={busy}>
-          Save backends
-        </button>
-        <button onClick={pushNow} disabled={busy}>
-          {busy ? "Backing up…" : "Back up all now"}
-        </button>
-        <button onClick={() => void reload()} disabled={busy}>
-          Refresh status
-        </button>
-      </div>
-
-      {msg && <div className="banner info" style={{ marginTop: 8 }}>{msg}</div>}
-      {err && <div className="banner error" style={{ marginTop: 8 }}>{err}</div>}
-
-      {status && (
-        <div style={{ marginTop: 12 }}>
-          {status.backends.length === 0 && (
-            <div className="faint">No backends configured yet.</div>
-          )}
-          {status.backends.map((b) => (
-            <div key={b.id} className="row" style={{ fontSize: 13, gap: 8 }}>
-              <span
-                className="dotmark"
-                style={{ color: !b.enabled ? "var(--fg-faint)" : b.ready.ok ? "var(--green)" : "var(--red)" }}
-              />
-              <span className="mono">{b.label}</span>
-              <span className="faint">
-                {!b.enabled ? "disabled" : b.ready.ok ? "ready" : b.ready.reason}
-              </span>
-            </div>
-          ))}
-          {status.manifest && (
-            <div className="faint" style={{ fontSize: 12, marginTop: 8 }}>
-              {Object.keys(status.manifest.repos).length} repo(s) backed up · manifest from{" "}
-              {status.manifestFrom} · updated {new Date(status.manifest.updatedAt).toLocaleString()}
-            </div>
-          )}
+      {status?.manifest && (
+        <div className="faint" style={{ fontSize: 12, marginTop: 12 }}>
+          {Object.keys(status.manifest.repos).length} repo(s) backed up · manifest from{" "}
+          {status.manifestFrom} · updated {new Date(status.manifest.updatedAt).toLocaleString()}
         </div>
       )}
 
