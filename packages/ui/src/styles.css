@@ -151,14 +151,17 @@ input:focus, textarea:focus, select:focus {
   transition: grid-template-columns 0.18s ease;
 }
 .app.rail-collapsed { grid-template-columns: 50px 1fr auto; }
+/* Pin each panel to its column so a sidebar going position:absolute (hover
+   peek) can't reflow the others into the wrong track. */
 .rail {
+  grid-column: 1;
   background: var(--bg-elev);
   border-right: 1px solid var(--border);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.main { overflow-y: auto; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+.main { grid-column: 2; overflow-y: auto; padding: 0; display: flex; flex-direction: column; min-width: 0; }
 
 /* When collapsed, the rail becomes a thin overlay strip that slides open on
    hover (the 50px grid column reserves its space so content never shifts). */
@@ -413,6 +416,7 @@ input:focus, textarea:focus, select:focus {
 
 /* ---- right sidebar ---- */
 .right-sidebar {
+  grid-column: 3;
   width: 320px;
   background: var(--bg-elev);
   border-left: 1px solid var(--border);
