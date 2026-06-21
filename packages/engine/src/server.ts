@@ -21,6 +21,7 @@ import { registerAgentRoutes } from "./routes/agents.js";
 import { registerChatRoutes } from "./routes/chat.js";
 import { registerSyncRoutes } from "./routes/sync.js";
 import { log, debug, isVerbose } from "./logger.js";
+import { appVersion } from "./version.js";
 
 export interface EngineHandle {
   app: FastifyInstance;
@@ -156,8 +157,18 @@ export async function startEngine(
 
   const ctx: AppContext = { db, hub, agents, sync, token, allowedOrigins, host, port };
 
-  // Health check (still behind auth + Origin).
-  app.get("/api/ping", async () => ({ ok: true, version: "1.0.0" }));
+  // Health check (still behind auth + Origin). Version is sourced from the
+  // single source of truth in version.ts.
+  app.get("/api/ping", async () => ({ ok: true, ...appVersion() }));
+
+  // Unauthenticated readiness probe. It lives outside `/api`, so it skips the
+  // token + Origin gate (it leaks nothing sensitive) while still being
+  // Host-pinned against DNS-rebinding. The desktop shell polls this to know
+  // when the engine is ready to receive the webview, and it doubles as the
+  // version surface for the shell's "about"/update logic.
+  app.get("/healthz", async (_req, reply) => {
+    reply.header("Cache-Control", "no-store").send({ ok: true, ...appVersion() });
+  });
 
   // Current user's display name (git config user.name, else OS account).
   app.get("/api/me", async () => ({ name: await gitUserName() }));

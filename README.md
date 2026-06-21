@@ -69,6 +69,21 @@ Then, in the UI:
 
 Headless (no browser)? `npm start -- --no-open`.
 
+### Desktop app
+
+Prefer a native window over a browser tab? GitManager also ships as a standalone
+desktop app for **Windows, macOS, and Linux** that runs the same engine + UI
+headlessly and 100% locally — no terminal, no manual server start — with the app
+version in the sidebar and built-in auto-update.
+
+```bash
+npm run desktop        # build everything and launch the native app
+npm run desktop:dist   # build local installers (packages/desktop/release/)
+```
+
+See [`docs/desktop.md`](docs/desktop.md) for the framework decision, the release
+process (tag → build → publish → auto-update), and CI signing setup.
+
 ### Put `gitm` on your PATH
 
 The UI is bundled into the engine, so a global install is self-contained:
@@ -285,6 +300,7 @@ In dev, give the Vite server the token via `VITE_GM_TOKEN=$(cat ~/.gitmanager/to
 packages/
   engine/   Fastify daemon: git, db, identity, scan, merge, review, agents, storage, routes, ws
   ui/       React + Vite SPA: sidebar, repo view, PR view, agent panel, settings
+  desktop/  Electron shell: spawns the engine, owns the native window, auto-update (see docs/desktop.md)
 ```
 
 ## Non-goals (v1)

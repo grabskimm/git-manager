@@ -4,6 +4,8 @@ import { useApp } from "./state";
 import { api } from "./api";
 import { RightSidebar } from "./components/RightSidebar";
 import { NewRepoDialog } from "./components/NewRepoDialog";
+import { AppVersion } from "./components/AppVersion";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { Home } from "./pages/Home";
 import { RepoView } from "./pages/RepoView";
 import { PrView } from "./pages/PrView";
@@ -184,6 +186,8 @@ export function App() {
             </div>
           )}
 
+          <UpdateBanner />
+
           <div className="rail-section rail-repos">
             <h3 style={{ margin: "6px 8px" }}>Repositories</h3>
 
@@ -225,8 +229,13 @@ export function App() {
           </div>
 
           <div className="rail-footer faint">
-            <small className="kbd">n</small> new · <small className="kbd">/</small> filter ·{" "}
-            <small className="kbd">g h</small> home · <small className="kbd">g s</small> settings
+            <div>
+              <small className="kbd">n</small> new · <small className="kbd">/</small> filter ·{" "}
+              <small className="kbd">g h</small> home · <small className="kbd">g s</small> settings
+            </div>
+            <div className="rail-footer-version">
+              <AppVersion />
+            </div>
           </div>
         </div>
       </aside>

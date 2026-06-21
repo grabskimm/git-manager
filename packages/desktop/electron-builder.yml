@@ -1,0 +1,80 @@
+appId: com.gitmanager.desktop
+productName: GitManager
+copyright: Copyright © GitManager
+
+directories:
+  output: release
+  buildResources: build
+
+# Only ship the compiled shell + production node_modules (which includes the
+# @gitmanager/engine dependency and its native modules). The engine's bundled UI
+# is served from inside that package.
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.ts"
+  - "!**/*.map"
+
+# Native modules (better-sqlite3, node-pty) cannot run from inside the asar
+# archive — unpack them, and the engine code we spawn as a child process.
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "node_modules/@gitmanager/engine/**"
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/node-pty/**"
+
+# Rebuild native deps against the Electron ABI at package time.
+npmRebuild: true
+nodeGypRebuild: false
+
+# --- auto-update manifest + GitHub Release publishing -----------------------
+# electron-builder emits latest.yml / latest-mac.yml / latest-linux.yml (the
+# electron-updater equivalent of latest.json) alongside the installers and
+# attaches everything to the GitHub Release.
+publish:
+  provider: github
+  owner: grabskimm
+  repo: git-manager
+  releaseType: release
+
+# --- Windows ----------------------------------------------------------------
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: msi
+      arch: [x64]
+  # Authenticode: electron-builder picks up CSC_LINK/CSC_KEY_PASSWORD or an
+  # Azure-signing afterSign hook from the environment; unsigned otherwise.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+# --- macOS ------------------------------------------------------------------
+mac:
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  # notarization runs when APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID
+  # are present in the environment; skipped (unsigned) otherwise.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip # required by electron-updater for macOS auto-update
+      arch: [arm64, x64]
+dmg:
+  writeUpdateInfo: true
+
+# --- Linux ------------------------------------------------------------------
+linux:
+  category: Development
+  maintainer: GitManager
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]

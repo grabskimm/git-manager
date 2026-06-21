@@ -1,0 +1,27 @@
+{
+  "name": "@gitmanager/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitManager desktop shell — runs the existing engine + UI headlessly in a native window, with auto-update.",
+  "main": "dist/main.js",
+  "author": "GitManager",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "npm run build && electron .",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:publish": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "@gitmanager/engine": "*",
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.5.4"
+  }
+}
