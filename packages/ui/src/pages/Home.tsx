@@ -39,14 +39,22 @@ export function Home() {
       <div className="page">
         <div className="empty">
           <div className="big">Welcome to GitManager 👋</div>
-          <p className="subtle" style={{ maxWidth: 520, margin: "0 auto 18px" }}>
+          <p className="subtle" style={{ maxWidth: 520, margin: "0 auto 20px" }}>
             A unified, local-first home for your scattered git repositories — browse code,
             open local pull requests, and get automatic Claude reviews. Everything runs on
             loopback; your <code>.git</code> stays canonical.
           </p>
-          <Link to="/settings">
-            <button className="primary">Add your first source directory →</button>
-          </Link>
+          <div className="row" style={{ justifyContent: "center" }}>
+            <button
+              className="primary"
+              onClick={() => window.dispatchEvent(new Event("gm:new-repo"))}
+            >
+              ＋ Create your first repository
+            </button>
+            <Link to="/settings">
+              <button>Add an existing folder →</button>
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -82,8 +90,11 @@ export function Home() {
       </div>
 
       <div className="quick-actions">
+        <button className="primary" onClick={() => window.dispatchEvent(new Event("gm:new-repo"))}>
+          ＋ New repository
+        </button>
         <Link to="/settings">
-          <button>＋ Add source directory</button>
+          <button>Add source directory</button>
         </Link>
         {repos[0] && (
           <Link to={`/repos/${repos[0].id}`}>

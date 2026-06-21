@@ -25,6 +25,13 @@ export function App() {
     localStorage.setItem("gm_rail_collapsed", railCollapsed ? "1" : "0");
   }, [railCollapsed]);
 
+  // Let any page (e.g. the dashboard) open the new-repo dialog without prop drilling.
+  useEffect(() => {
+    const open = () => setNewRepo(true);
+    window.addEventListener("gm:new-repo", open);
+    return () => window.removeEventListener("gm:new-repo", open);
+  }, []);
+
   const scan = async () => {
     setScanning(true);
     try {
