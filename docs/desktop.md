@@ -95,10 +95,24 @@ npm run desktop:dist        # -> packages/desktop/release/
 
 Notes:
 
-- The first `npm install` (with scripts enabled) downloads the Electron binary and
-  rebuilds the native modules for the Electron ABI. Behind a restrictive network
-  policy this download may be blocked.
+- The first `npm install` (with scripts enabled) downloads the Electron binary.
+  Behind a restrictive network policy this download may be blocked.
+- `npm run desktop` runs `prepare:native` first: it stages a self-contained
+  `node_modules` for the desktop package and rebuilds **better-sqlite3** for the
+  Electron ABI there (node-pty is N-API and ABI-stable, so it isn't rebuilt). This
+  is isolated from the repo-root `node_modules`, so the CLI/web build (`npm start`,
+  `npm test`) keeps using the system-Node binaries — no ABI clashes between the two.
 - Local installers are **unsigned** unless you provide the signing secrets below.
+
+### App icon / logo
+
+The icon and logo are generated procedurally (no design tooling required) by
+`packages/desktop/scripts/make-icon.mjs` — a git branch-and-merge graph in the
+GitManager palette. Regenerate with `npm run icon --workspace packages/desktop`,
+which writes `build/icon.ico` (Windows — the MSI target requires it), `build/icon.png`
+(Linux), and `build/logo.png` (branding). To use your own artwork instead, drop a
+≥256px `icon.ico`, a 512px `icon.png`, and (for macOS) an `icon.icns` into
+`packages/desktop/build/`.
 - The desktop app shares state with the CLI/web app (`~/.gitmanager`), so your
   repos and settings carry over.
 
