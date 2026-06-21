@@ -59,4 +59,7 @@ export const layout = {
   repoIndex: (prefix: string, gmId: string) => `${prefix}/repos/${gmId}/index.json`,
   snapshot: (prefix: string, gmId: string, ts: string) =>
     `${prefix}/repos/${gmId}/snapshots/${ts.replace(/[:.]/g, "-")}.bundle`,
+  // Tiny object written then deleted to confirm data-plane write access — a
+  // read-only readiness check passes even when the identity can't write.
+  writeProbe: (prefix: string) => `${prefix}/.gitm-write-probe`,
 };

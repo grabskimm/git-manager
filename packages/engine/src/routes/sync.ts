@@ -6,7 +6,7 @@ import { getConfig } from "../config.js";
 import { addSourceDir, getRepo, listRepos, listSourceDirs } from "../store.js";
 import { scanAll } from "../scan.js";
 import { loadStorageConfig, saveStorageConfig, enabledBackends } from "../storage/config.js";
-import { backendFromConfig } from "../storage/index.js";
+import { backendFromConfig, layout, prefixOf } from "../storage/index.js";
 import { pushRepo, pullRepo, readManifest, type RepoLike } from "../storage/sync.js";
 import type { StorageConfig } from "../storage/backend.js";
 
@@ -38,7 +38,19 @@ export function registerSyncRoutes(app: FastifyInstance, ctx: AppContext): void 
     const backends = await Promise.all(
       cfg.backends.map(async (b) => {
         const backend = backendFromConfig(b);
-        const ready = await backend.isReady();
+        let ready = await backend.isReady();
+        // Reachable isn't the same as writable — verify a real write so the
+        // "ready" badge can't go green while backups silently fail (e.g. an
+        // Azure identity that can read the container but lacks write access).
+        if (ready.ok && b.enabled) {
+          const probe = layout.writeProbe(prefixOf(b));
+          try {
+            await backend.put(probe, Buffer.from("gitm-write-probe"));
+            await backend.del(probe).catch(() => {});
+          } catch (e) {
+            ready = { ok: false, reason: `reachable but write failed: ${(e as Error).message}` };
+          }
+        }
         return { id: b.id, label: backend.label, enabled: b.enabled, ready };
       }),
     );
