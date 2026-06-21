@@ -52,7 +52,7 @@ export class S3Backend implements StorageBackend {
     } catch (e) {
       return {
         ok: false,
-        reason: `S3 not reachable (install @aws-sdk/client-s3 and run \`aws sso login\`/configure creds): ${(e as Error).message}`,
+        reason: `S3 not reachable — run \`aws sso login\` / configure credentials (and check the bucket/region): ${(e as Error).message}`,
       };
     }
   }

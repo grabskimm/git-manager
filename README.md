@@ -234,11 +234,11 @@ store just holds backups. Git work is always **local**.
   R2** (via the `wrangler` CLI), **Azure Blob** (`@azure/storage-blob`), and a local
   **filesystem** target (handy for a NAS/mounted drive). Multiple enabled backends
   are written on every push.
-- **Credentials:** none are stored by GitManager. Auth comes from each provider's own
-  login — AWS default chain / `aws sso login`, `wrangler login`, `az login`
-  (`DefaultAzureCredential`). The cloud SDKs are **optional dependencies**, loaded
-  lazily; a backend that isn't installed/logged-in simply reports "not ready" and is
-  skipped.
+- **Credentials:** none are stored by GitManager. The cloud SDKs ship with the engine,
+  so the **only thing you do per device is log in** — AWS default chain / `aws sso
+  login`, `wrangler login` (R2 uses the `wrangler` CLI, resolved via PATH or `npx`),
+  and `az login` (`DefaultAzureCredential`). A backend that isn't logged in simply
+  reports "not ready" and is skipped.
 - **Push:** manual by default (`gitm sync push`, or *Back up all now* in Settings →
   Backup). Turn on `sync_enabled` for a push every `sync_interval_minutes`.
 - **Pull / restore:** on a fresh device, `gitm sync pull <gm-id> --into <dir>` clones

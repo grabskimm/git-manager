@@ -42,7 +42,7 @@ export class AzureBackend implements StorageBackend {
     } catch (e) {
       return {
         ok: false,
-        reason: `Azure not reachable (install @azure/storage-blob + @azure/identity and run \`az login\`): ${(e as Error).message}`,
+        reason: `Azure not reachable — run \`az login\` (and check the account/container): ${(e as Error).message}`,
       };
     }
   }
