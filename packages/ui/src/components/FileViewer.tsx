@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import hljs from "highlight.js";
+import DOMPurify from "dompurify";
 import { Markdown } from "./Markdown";
 import type { FileContent } from "../types";
 
@@ -45,11 +46,14 @@ function ext(path: string): string {
 function CodeView({ content, path, wrap }: { content: string; path: string; wrap: boolean }) {
   const highlighted = useMemo(() => {
     const lang = EXT_LANG[ext(path)];
+    // File content is attacker-controlled (any file in a malicious repo).
+    // highlight.js escapes its input, but sanitize its HTML too as a second
+    // barrier before it's injected — the page holds the loopback token.
     try {
       if (lang && hljs.getLanguage(lang)) {
-        return hljs.highlight(content, { language: lang }).value;
+        return DOMPurify.sanitize(hljs.highlight(content, { language: lang }).value);
       }
-      return hljs.highlightAuto(content).value;
+      return DOMPurify.sanitize(hljs.highlightAuto(content).value);
     } catch {
       return content.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] ?? c);
     }

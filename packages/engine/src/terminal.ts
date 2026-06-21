@@ -10,6 +10,7 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import type { Database } from "better-sqlite3";
 import { safeEqual } from "./token.js";
+import { getConfig } from "./config.js";
 
 /**
  * node-pty ships a small `spawn-helper` binary (macOS/Linux). If it loses its
@@ -117,6 +118,16 @@ export class TerminalServer {
     server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
       const url = new URL(req.url ?? "/", "http://127.0.0.1");
       if (url.pathname !== "/ws/terminal") return;
+
+      // The terminal is a full shell (RCE by design), so it must honor the
+      // `terminal_enabled` kill switch server-side — not just hide the UI tab.
+      // Without this, any same-origin script (e.g. an XSS in rendered repo
+      // content) could open a shell even when the user has disabled it.
+      if (!getConfig(this.db).terminal_enabled) {
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
+        return;
+      }
 
       const origin = req.headers.origin;
       if (!origin || !this.allowedOrigins.has(origin)) {

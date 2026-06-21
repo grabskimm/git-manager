@@ -31,7 +31,14 @@ export class FsBackend implements StorageBackend {
   }
 
   private full(key: string): string {
-    return path.join(this.base, key);
+    // Defense-in-depth: never let a key (which embeds the repo id and prefix)
+    // resolve outside the base dir, even if an upstream id/prefix validation is
+    // ever bypassed. `path.resolve` collapses any `..` segments.
+    const f = path.resolve(this.base, key);
+    if (f !== this.base && !f.startsWith(this.base + path.sep)) {
+      throw new Error(`storage key escapes base dir: ${key}`);
+    }
+    return f;
   }
 
   async put(key: string, data: Buffer): Promise<void> {

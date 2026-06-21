@@ -56,4 +56,26 @@ describe("repo identity (§8)", () => {
     expect(id.source).toBe("marker");
     expect(id.id).toBe("custom-id");
   });
+
+  it("ignores a path-traversal marker id and falls back to the root commit", async () => {
+    const { path: repo } = await initRepo();
+    const root = await writeAndCommit(repo, "a.txt", "1", "first");
+    fs.writeFileSync(
+      path.join(repo, ".gitmanager"),
+      JSON.stringify({ id: "../../../../etc/passwd" }),
+    );
+    const id = await resolveIdentity(repo);
+    expect(id.source).toBe("root-commit");
+    expect(id.id).toBe(root);
+  });
+
+  it("ignores a marker id with path separators or other unsafe characters", async () => {
+    for (const bad of ["a/b", "..", "x\\y", "id with space", "a;b"]) {
+      const { path: repo } = await initRepo();
+      await writeAndCommit(repo, "a.txt", "1", "first");
+      fs.writeFileSync(path.join(repo, ".gitmanager"), JSON.stringify({ id: bad }));
+      const id = await resolveIdentity(repo);
+      expect(id.source).toBe("root-commit");
+    }
+  });
 });

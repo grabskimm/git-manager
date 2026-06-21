@@ -99,6 +99,15 @@ describe("storage sync (filesystem backend round-trip)", () => {
     const res = await pushRepo([], repo);
     expect(res[0].status).toBe("skipped");
   });
+
+  it("rejects a storage key that escapes the base directory", async () => {
+    const backend = new FsBackend(path.join(tmp, "bucket-x"));
+    await expect(backend.put("../../escape.bundle", Buffer.from("x"))).rejects.toThrow(
+      /escapes base/,
+    );
+    // And nothing was written outside the base.
+    expect(fs.existsSync(path.join(tmp, "escape.bundle"))).toBe(false);
+  });
 });
 
 describe("backendReadiness (verifies write access, not just reachability)", () => {

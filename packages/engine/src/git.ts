@@ -95,6 +95,17 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   return res.code === 0 && res.stdout.trim() === "true";
 }
 
+/**
+ * True if a value would be parsed by `git` as an option rather than a
+ * ref/path. We pass user-supplied refs and paths in argument position, so a
+ * value starting with `-` (e.g. `--output=/etc/x`, which `git diff`/`git show`
+ * honor as a file-write flag) is argument injection. Real refs/paths never
+ * start with `-`; callers treat such input as "not found" and fail closed.
+ */
+function looksLikeOption(value: string): boolean {
+  return value.startsWith("-");
+}
+
 /** A git URL (https/http/git/ssh/file) or scp-like `user@host:path`. */
 export function isRemoteUrl(s: string): boolean {
   return /^(https?|git|ssh|file):\/\//i.test(s) || /^[^/\\\s]+@[^/\\\s:]+:.+/.test(s);
@@ -226,6 +237,7 @@ export async function branchExists(repo: string, name: string): Promise<boolean>
 }
 
 export async function revParse(repo: string, ref: string): Promise<string | null> {
+  if (looksLikeOption(ref)) return null;
   const res = await runGit(repo, ["rev-parse", "--verify", `${ref}^{commit}`]);
   if (res.code !== 0) return null;
   return res.stdout.trim() || null;
@@ -245,6 +257,7 @@ export async function log(
   ref: string,
   limit = 100,
 ): Promise<CommitInfo[]> {
+  if (looksLikeOption(ref)) return [];
   const sep = "\x1f";
   const rec = "\x1e";
   const fmt = ["%H", "%h", "%an", "%ae", "%aI", "%s"].join(sep) + rec;
@@ -278,6 +291,7 @@ export async function diffRange(
   base: string,
   head: string,
 ): Promise<string> {
+  if (looksLikeOption(base) || looksLikeOption(head)) return "";
   const res = await runGit(repo, ["diff", `${base}...${head}`]);
   if (res.code !== 0) {
     // Fall back to two-dot when there is no common ancestor.
@@ -292,6 +306,7 @@ export async function diffStat(
   base: string,
   head: string,
 ): Promise<string> {
+  if (looksLikeOption(base) || looksLikeOption(head)) return "";
   const res = await runGit(repo, ["diff", "--stat", `${base}...${head}`]);
   return res.code === 0 ? res.stdout : "";
 }
@@ -309,6 +324,7 @@ export async function listTree(
   ref: string,
   dirPath = "",
 ): Promise<TreeEntry[]> {
+  if (looksLikeOption(ref) || looksLikeOption(dirPath)) return [];
   const prefix = dirPath ? dirPath.replace(/\/?$/, "/") : "";
   const args = ["ls-tree", "-l", ref];
   if (prefix) args.push(prefix);
@@ -354,6 +370,7 @@ export async function readFile(
   ref: string,
   filePath: string,
 ): Promise<FileContent | null> {
+  if (looksLikeOption(ref) || looksLikeOption(filePath)) return null;
   const sizeRes = await runGit(repo, ["cat-file", "-s", `${ref}:${filePath}`]);
   if (sizeRes.code !== 0) return null;
   const size = Number(sizeRes.stdout.trim()) || 0;
