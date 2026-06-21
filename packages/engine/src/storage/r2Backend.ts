@@ -36,8 +36,6 @@ function rawRun(cmd: string, args: string[], input?: Buffer): Promise<CmdResult>
 
 // Resolve how to invoke wrangler once: explicit override, then a global
 // `wrangler`, then `npx wrangler` (the common case — wrangler run via npx).
-// Note: the result is cached for the lifetime of the process. If wrangler is
-// installed after startup, the engine must be restarted for it to be detected.
 let resolvedBase: string[] | null = null;
 async function wranglerBase(): Promise<string[] | null> {
   if (resolvedBase) return resolvedBase;
