@@ -147,7 +147,7 @@ export function PrView() {
   const hasReview = thread.some((t) => t.author === "claude");
 
   return (
-    <div className="page">
+    <div className="page page--wide">
       <div className="row" style={{ marginBottom: 4 }}>
         <StatusBadge status={pr.status} />
         {repo && <Link to={`/repos/${repo.id}`} className="faint">{repo.display_name}</Link>}

@@ -118,7 +118,7 @@ export function RepoView() {
   const defRef = repo.default_branch ?? branches[0]?.name ?? "HEAD";
 
   return (
-    <div className={tab === "terminal" ? "page page--terminal" : "page"}>
+    <div className={tab === "terminal" ? "page page--terminal" : "page page--wide"}>
       <div className="spread">
         <div>
           <h1>{repo.display_name}</h1>

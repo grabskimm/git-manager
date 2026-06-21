@@ -3,6 +3,7 @@ import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { useApp } from "./state";
 import { api } from "./api";
 import { RightSidebar } from "./components/RightSidebar";
+import { NewRepoDialog } from "./components/NewRepoDialog";
 import { Home } from "./pages/Home";
 import { RepoView } from "./pages/RepoView";
 import { PrView } from "./pages/PrView";
@@ -13,8 +14,16 @@ export function App() {
   const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState("");
   const [sel, setSel] = useState(0);
+  const [newRepo, setNewRepo] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(
+    () => localStorage.getItem("gm_rail_collapsed") === "1",
+  );
   const filterRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    localStorage.setItem("gm_rail_collapsed", railCollapsed ? "1" : "0");
+  }, [railCollapsed]);
 
   const scan = async () => {
     setScanning(true);
@@ -40,7 +49,7 @@ export function App() {
   }, [filtered.length]);
 
   // Global shortcuts: Cmd/Ctrl+K or "/" focuses the repo filter; "g h"/"g s"
-  // jump home/settings. Ignored while typing in an input/textarea.
+  // jump home/settings; "n" opens the new-repo dialog. Ignored while typing.
   useEffect(() => {
     let lastG = 0;
     const onKey = (e: KeyboardEvent) => {
@@ -50,10 +59,15 @@ export function App() {
 
       if ((e.key === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
         e.preventDefault();
-        filterRef.current?.focus();
+        if (railCollapsed) setRailCollapsed(false);
+        setTimeout(() => filterRef.current?.focus(), 0);
         return;
       }
       if (typing) return;
+      if (e.key === "n") {
+        setNewRepo(true);
+        return;
+      }
       if (e.key === "g") {
         lastG = Date.now();
         return;
@@ -66,7 +80,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate]);
+  }, [navigate, railCollapsed]);
 
   const onFilterKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
@@ -84,91 +98,125 @@ export function App() {
   };
 
   return (
-    <div className="app">
-      <aside className="rail">
-        <div className="rail-header">
-          <button type="button" className="brand brand-btn" onClick={() => navigate("/")}>
-            Git<span className="dot">●</span>Manager
+    <div className={`app ${railCollapsed ? "rail-collapsed" : ""}`}>
+      <aside className={`rail ${railCollapsed ? "collapsed" : ""}`}>
+        {/* Collapsed strip: expand + new-repo, vertically stacked. */}
+        <div className="rail-strip">
+          <button
+            className="icon-btn"
+            onClick={() => setRailCollapsed(false)}
+            title="Expand sidebar"
+          >
+            ☰
           </button>
-          <div className="row" style={{ gap: 6 }}>
-            <button
-              className="icon-btn"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-            >
-              {theme === "dark" ? "☀" : "☾"}
-            </button>
-            <span
-              className="dotmark"
-              title={connected ? "Engine connected" : "Disconnected"}
-              style={{ color: connected ? "var(--green)" : "var(--red)" }}
-            />
-          </div>
+          <button className="icon-btn" onClick={() => setNewRepo(true)} title="New repository (n)">
+            ＋
+          </button>
+          <button
+            className="icon-btn"
+            onClick={scan}
+            disabled={scanning}
+            title="Refresh / re-scan"
+          >
+            {scanning ? "…" : "↻"}
+          </button>
+          <NavLink to="/settings" className="icon-btn" title="Settings">
+            ⚙
+          </NavLink>
         </div>
 
-        {!connected && (
-          <div className="banner error" style={{ margin: 10 }}>
-            Not connected to the engine.{" "}
-            {error ? <span className="mono">{error}</span> : "Is it running?"}
+        {/* Full rail body. */}
+        <div className="rail-full">
+          <div className="rail-header">
+            <button type="button" className="brand brand-btn" onClick={() => navigate("/")}>
+              Git<span className="dot">●</span>Manager
+            </button>
+            <div className="row" style={{ gap: 4 }}>
+              <button
+                className="icon-btn"
+                onClick={toggleTheme}
+                title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              >
+                {theme === "dark" ? "☀" : "☾"}
+              </button>
+              <span
+                className="dotmark"
+                title={connected ? "Engine connected" : "Disconnected"}
+                style={{ color: connected ? "var(--green)" : "var(--red)" }}
+              />
+              <button
+                className="icon-btn"
+                onClick={() => setRailCollapsed(true)}
+                title="Collapse sidebar"
+              >
+                ‹
+              </button>
+            </div>
           </div>
-        )}
 
-        <div className="rail-section">
-          <div className="spread" style={{ margin: "0 8px 6px" }}>
-            <h3 style={{ margin: 0 }}>Repositories</h3>
-            <button onClick={scan} disabled={scanning} title="Re-scan source dirs">
+          {/* Primary actions, reachable without hunting corners. */}
+          <div className="rail-actions">
+            <button className="primary action-new" onClick={() => setNewRepo(true)}>
+              ＋ New repository
+            </button>
+            <button className="icon-btn" onClick={scan} disabled={scanning} title="Refresh / re-scan">
               {scanning ? "…" : "↻"}
             </button>
+            <NavLink to="/settings" className="icon-btn" title="Settings">
+              ⚙
+            </NavLink>
           </div>
 
-          {repos.length > 0 && (
-            <div style={{ padding: "0 8px 8px" }}>
-              <input
-                ref={filterRef}
-                placeholder="Filter repos…  ( / )"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                onKeyDown={onFilterKey}
-              />
+          {!connected && (
+            <div className="banner error" style={{ margin: 10 }}>
+              Not connected to the engine.{" "}
+              {error ? <span className="mono">{error}</span> : "Is it running?"}
             </div>
           )}
 
-          {repos.length === 0 && (
-            <div className="faint" style={{ padding: "4px 10px", fontSize: 12 }}>
-              No repos yet. Add a source directory in Settings.
-            </div>
-          )}
-          {repos.length > 0 && filtered.length === 0 && (
-            <div className="faint" style={{ padding: "4px 10px", fontSize: 12 }}>
-              No repos match “{filter}”.
-            </div>
-          )}
-          {filtered.map((r, i) => (
-            <NavLink
-              key={r.id}
-              to={`/repos/${r.id}`}
-              className={({ isActive }) =>
-                `repo-item ${isActive ? "active" : ""} ${i === sel && filter ? "kbd-sel" : ""}`
-              }
-              onMouseEnter={() => setSel(i)}
-            >
-              <div>{r.display_name}</div>
-              <div className="repo-id">{r.id.slice(0, 16)}</div>
-            </NavLink>
-          ))}
-        </div>
+          <div className="rail-section rail-repos">
+            <h3 style={{ margin: "6px 8px" }}>Repositories</h3>
 
-        <div className="spacer" />
-        <div className="rail-section">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-          >
-            ⚙ Settings
-          </NavLink>
-          <div className="faint" style={{ padding: "6px 10px", fontSize: 11 }}>
-            <small className="kbd">/</small> filter · <small className="kbd">g h</small> home ·{" "}
-            <small className="kbd">g s</small> settings
+            {repos.length > 0 && (
+              <div style={{ padding: "0 8px 8px" }}>
+                <input
+                  ref={filterRef}
+                  placeholder="Filter repos…  ( / )"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  onKeyDown={onFilterKey}
+                />
+              </div>
+            )}
+
+            {repos.length === 0 && (
+              <div className="faint" style={{ padding: "4px 10px", fontSize: 12 }}>
+                No repos yet. Click <strong>New repository</strong> or add a source in Settings.
+              </div>
+            )}
+            {repos.length > 0 && filtered.length === 0 && (
+              <div className="faint" style={{ padding: "4px 10px", fontSize: 12 }}>
+                No repos match “{filter}”.
+              </div>
+            )}
+            {filtered.map((r, i) => (
+              <NavLink
+                key={r.id}
+                to={`/repos/${r.id}`}
+                className={({ isActive }) =>
+                  `repo-item ${isActive ? "active" : ""} ${i === sel && filter ? "kbd-sel" : ""}`
+                }
+                onMouseEnter={() => setSel(i)}
+              >
+                <div>{r.display_name}</div>
+                <div className="repo-id">{r.id.slice(0, 16)}</div>
+              </NavLink>
+            ))}
+          </div>
+
+          <div className="rail-footer faint">
+            <small className="kbd">n</small> new · <small className="kbd">/</small> filter ·{" "}
+            <small className="kbd">g h</small> home · <small className="kbd">g s</small> settings
           </div>
         </div>
       </aside>
@@ -183,6 +231,8 @@ export function App() {
       </main>
 
       <RightSidebar />
+
+      {newRepo && <NewRepoDialog onClose={() => setNewRepo(false)} />}
     </div>
   );
 }

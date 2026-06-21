@@ -42,7 +42,7 @@ function ext(path: string): string {
   return path.split(".").pop()?.toLowerCase() ?? "";
 }
 
-function CodeView({ content, path }: { content: string; path: string }) {
+function CodeView({ content, path, wrap }: { content: string; path: string; wrap: boolean }) {
   const highlighted = useMemo(() => {
     const lang = EXT_LANG[ext(path)];
     try {
@@ -59,28 +59,12 @@ function CodeView({ content, path }: { content: string; path: string }) {
   const gutter = Array.from({ length: lineCount }, (_, i) => i + 1).join("\n");
 
   return (
-    <div className="code-block" style={{ display: "flex" }}>
-      <pre
-        aria-hidden
-        style={{
-          margin: 0,
-          padding: "14px 10px 14px 16px",
-          textAlign: "right",
-          color: "var(--fg-faint)",
-          userSelect: "none",
-          fontFamily: "var(--mono)",
-          fontSize: "12.5px",
-          lineHeight: "1.55",
-        }}
-      >
+    <div className={`code-block ${wrap ? "wrap" : ""}`} style={{ display: "flex" }}>
+      <pre className="code-gutter" aria-hidden>
         {gutter}
       </pre>
-      <pre style={{ margin: 0, overflowX: "auto", flex: 1 }}>
-        <code
-          className="hljs"
-          style={{ padding: "14px 16px", fontSize: "12.5px", lineHeight: "1.55" }}
-          dangerouslySetInnerHTML={{ __html: highlighted }}
-        />
+      <pre className="code-pre">
+        <code className="hljs" dangerouslySetInnerHTML={{ __html: highlighted }} />
       </pre>
     </div>
   );
@@ -89,6 +73,8 @@ function CodeView({ content, path }: { content: string; path: string }) {
 export function FileViewer({ file }: { file: FileContent }) {
   const isMarkdown = ["md", "markdown", "mdx"].includes(ext(file.path));
   const [rendered, setRendered] = useState(true);
+  const [wrap, setWrap] = useState(false);
+  const showCode = !file.binary && !file.truncated && !(isMarkdown && rendered);
 
   return (
     <div className="file-view">
@@ -96,6 +82,15 @@ export function FileViewer({ file }: { file: FileContent }) {
         <span>{file.path}</span>
         <span className="spacer" />
         <span className="faint">{file.size} bytes</span>
+        {showCode && (
+          <button
+            className={`icon-btn ${wrap ? "on" : ""}`}
+            onClick={() => setWrap((w) => !w)}
+            title="Toggle soft wrap"
+          >
+            ↩ wrap
+          </button>
+        )}
         {isMarkdown && (
           <button className="icon-btn" onClick={() => setRendered((r) => !r)} title="Toggle render">
             {rendered ? "{ } source" : "▤ rendered"}
@@ -113,7 +108,7 @@ export function FileViewer({ file }: { file: FileContent }) {
       ) : isMarkdown && rendered ? (
         <Markdown source={file.content} />
       ) : (
-        <CodeView content={file.content} path={file.path} />
+        <CodeView content={file.content} path={file.path} wrap={wrap} />
       )}
     </div>
   );

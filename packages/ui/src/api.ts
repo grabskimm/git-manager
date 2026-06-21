@@ -73,6 +73,11 @@ export const api = {
   removeSourceDir: (id: string) =>
     request<{ ok: boolean }>(`/api/source-dirs/${id}`, { method: "DELETE" }),
   scan: () => request<{ scanned: number; repos: Repo[] }>("/api/scan", { method: "POST" }),
+  createRepo: (parent: string, name: string) =>
+    request<{ repo: Repo | null; path: string }>("/api/repos/new", {
+      method: "POST",
+      body: JSON.stringify({ parent, name }),
+    }),
 
   // repos
   listRepos: () => request<Repo[]>("/api/repos"),

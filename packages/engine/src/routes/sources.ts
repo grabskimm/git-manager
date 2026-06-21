@@ -3,9 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
-import { addSourceDir, listSourceDirs, removeSourceDir } from "../store.js";
+import { addSourceDir, listRepos, listSourceDirs, removeSourceDir } from "../store.js";
 import { scanAll } from "../scan.js";
-import { cloneRepo, isRemoteUrl, repoNameFromUrl } from "../git.js";
+import { cloneRepo, createLocalRepo, isRemoteUrl, repoNameFromUrl } from "../git.js";
 import { gitmanagerHome } from "../paths.js";
 
 /** Expand a leading ~ and resolve to an absolute, OS-native path. */
@@ -84,4 +84,49 @@ export function registerSourceRoutes(app: FastifyInstance, ctx: AppContext): voi
     ctx.hub.broadcast("repos.updated", { repos: result.repos.length });
     return { scanned: result.scanned, repos: result.repos };
   });
+
+  // Create a brand-new local repo under a parent directory, register that
+  // parent as a source dir, scan, and return the new repo.
+  app.post<{ Body: { parent?: string; name?: string } }>(
+    "/api/repos/new",
+    async (req, reply) => {
+      const name = req.body?.name?.trim();
+      const parentRaw = req.body?.parent?.trim();
+      if (!name || !parentRaw) {
+        reply.code(400);
+        return { error: "name_and_parent_required" };
+      }
+      if (!/^[\w.-]+$/.test(name) || name === "." || name === "..") {
+        reply.code(400);
+        return { error: "invalid_name", message: "Use letters, numbers, dot, dash, underscore." };
+      }
+
+      const parent = normalizeLocalPath(parentRaw);
+      if (!fs.existsSync(parent) || !fs.statSync(parent).isDirectory()) {
+        reply.code(400);
+        return { error: "parent_not_a_directory", path: parent };
+      }
+      const dir = path.join(parent, name);
+      if (fs.existsSync(dir)) {
+        reply.code(409);
+        return { error: "already_exists", path: dir };
+      }
+
+      fs.mkdirSync(dir, { recursive: true });
+      try {
+        await createLocalRepo(dir, name);
+      } catch (e) {
+        reply.code(400);
+        return { error: "init_failed", message: (e as Error).message };
+      }
+
+      if (!listSourceDirs(ctx.db).some((d) => d.path === parent)) {
+        addSourceDir(ctx.db, parent);
+      }
+      await scanAll(ctx.db);
+      ctx.hub.broadcast("repos.updated", { repos: listRepos(ctx.db).length });
+      const repo = listRepos(ctx.db).find((r) => r.abs_path === dir) ?? null;
+      return { repo, path: dir };
+    },
+  );
 }

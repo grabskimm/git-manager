@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 
 export interface GitResult {
   code: number;
@@ -88,6 +90,36 @@ export function repoNameFromUrl(url: string): string {
 /** Clone a remote repo into a local directory (the local .git stays canonical). */
 export async function cloneRepo(url: string, targetDir: string): Promise<GitResult> {
   return runGit(process.cwd(), ["clone", url, targetDir]);
+}
+
+/**
+ * Create a brand-new local repo in `dir` (which must already exist and be
+ * empty): init on `main`, seed a README, and make an initial commit so the
+ * repo has real history and a proper default branch. Best-effort identity flags
+ * keep `git commit` from failing when the user has no global git identity.
+ */
+export async function createLocalRepo(dir: string, name: string): Promise<void> {
+  let init = await runGit(dir, ["init", "-b", "main"]);
+  if (init.code !== 0) {
+    // Older git without `-b`: init, then point HEAD at main.
+    init = await runGit(dir, ["init"]);
+    if (init.code !== 0) {
+      throw new GitError(`git init failed: ${init.stderr.trim()}`, init, ["init"]);
+    }
+    await runGit(dir, ["symbolic-ref", "HEAD", "refs/heads/main"]);
+  }
+  fs.writeFileSync(path.join(dir, "README.md"), `# ${name}\n`);
+  await runGit(dir, ["add", "-A"]);
+  // Identity flags are a fallback; a configured global identity still wins.
+  await runGit(dir, [
+    "-c",
+    "user.name=GitManager",
+    "-c",
+    "user.email=gitmanager@localhost",
+    "commit",
+    "-m",
+    "Initial commit",
+  ]);
 }
 
 /** Top-level work tree of a repo containing `dir`, or null. */
