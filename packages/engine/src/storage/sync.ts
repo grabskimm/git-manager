@@ -9,6 +9,7 @@ import type {
 } from "./backend.js";
 import { backendFromConfig } from "./index.js";
 import { createBundle, cloneFromBundle, fetchFromBundle, headSha } from "./bundle.js";
+import { log, debug } from "../logger.js";
 
 const MAX_SNAPSHOTS = 10;
 
@@ -49,14 +50,20 @@ async function pushRepoToBackend(
   sha: string | null,
 ): Promise<PushResult> {
   const backend = backendFromConfig(cfg);
+  debug(`sync: ${repo.display_name} → ${backend.label}: checking readiness`);
   const ready = await backend.isReady();
-  if (!ready.ok) return { backend: backend.label, status: "skipped", reason: ready.reason };
+  if (!ready.ok) {
+    log(`sync: ${repo.display_name} → ${backend.label}: skipped (${ready.reason})`);
+    return { backend: backend.label, status: "skipped", reason: ready.reason };
+  }
 
   const prefix = prefixOf(cfg);
   const ts = new Date().toISOString();
   const snapKey = layout.snapshot(prefix, repo.id, ts);
 
+  log(`sync: ${repo.display_name} → ${backend.label}: uploading snapshot (${bundle.length} bytes) ${snapKey}`);
   await backend.put(snapKey, bundle);
+  debug(`sync: ${repo.display_name} → ${backend.label}: snapshot uploaded, updating index`);
 
   // Update the per-repo index (snapshot history + latest), prune old snapshots.
   const idx: RepoIndex =
@@ -88,6 +95,7 @@ async function pushRepoToBackend(
   manifest.updatedAt = ts;
   await writeJson(backend, layout.manifest(prefix), manifest);
 
+  log(`sync: ${repo.display_name} → ${backend.label}: done (${bundle.length} bytes)`);
   return { backend: backend.label, status: "ok", bytes: bundle.length, snapshotKey: snapKey };
 }
 
@@ -99,8 +107,10 @@ export async function pushRepo(backends: BackendConfig[], repo: RepoLike): Promi
   let bundle: Buffer;
   let sha: string | null;
   try {
+    debug(`sync: ${repo.display_name}: bundling ${repo.abs_path}`);
     bundle = await createBundle(repo.abs_path);
     sha = await headSha(repo.abs_path);
+    debug(`sync: ${repo.display_name}: bundled ${bundle.length} bytes`);
   } catch (e) {
     // e.g. an empty repo (no commits) — skip it without failing the batch.
     const reason = `could not bundle ${repo.display_name}: ${(e as Error).message}`;
