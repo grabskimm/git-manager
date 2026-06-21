@@ -17,13 +17,15 @@ interface ProviderDef {
   fields: FieldDef[];
 }
 
+const DEFAULT_FS_DIR = "~/.gitmanager/backups";
+
 const PROVIDERS: ProviderDef[] = [
   {
     id: "fs",
     label: "Local folder / NAS",
     auth: "Writes to a local path — no login required.",
     fields: [
-      { key: "dir", label: "Directory", required: true, placeholder: "~/gitmanager-backups" },
+      { key: "dir", label: "Directory", required: true, placeholder: "~/.gitmanager/backups" },
       { key: "prefix", label: "Prefix", required: false, placeholder: "gitmanager" },
     ],
   },
@@ -128,7 +130,14 @@ export function BackupSettings() {
   }, [reload]);
 
   const setEnabled = (id: ProviderId, enabled: boolean) =>
-    setForm((f) => ({ ...f, [id]: { ...f[id], enabled } }));
+    setForm((f) => {
+      const entry = { ...f[id], enabled };
+      // Prefill the local-folder default the first time it's enabled.
+      if (id === "fs" && enabled && !entry.values.dir?.trim()) {
+        entry.values = { ...entry.values, dir: DEFAULT_FS_DIR };
+      }
+      return { ...f, [id]: entry };
+    });
   const setValue = (id: ProviderId, key: string, value: string) =>
     setForm((f) => ({ ...f, [id]: { ...f[id], values: { ...f[id].values, [key]: value } } }));
 
