@@ -234,6 +234,11 @@ A storage backend for **moving repos between machines without GitHub**. It is *n
 
 Config lives in `~/.gitmanager/storage.json` (`0600`) — bucket/container names only, never secrets.
 
+> **"… is not installed" when backing up?** The S3/Azure SDKs ship as engine
+> dependencies, so a backend showing *"`@azure/storage-blob` is not installed — run
+> `npm install`"* just means your `node_modules` is stale (deps added since your last
+> install). Run `npm install` in the project (or reinstall the `gitm` CLI) and restart.
+
 ## Agent observe panel (opt-in)
 
 Enable it in Settings. GitManager reads agent session **transcripts read-only**, discovers

@@ -1,13 +1,10 @@
 import type { StorageBackend } from "./backend.js";
-
-async function load(name: string): Promise<any> {
-  return import(name);
-}
+import { loadDep, MissingDepError } from "./optionalDep.js";
 
 /**
  * Azure Blob Storage backend. Auth uses `DefaultAzureCredential` (OAuth via
  * `az login`, managed identity, env, etc.) — no keys stored by GitManager.
- * Requires the optional `@azure/storage-blob` and `@azure/identity` deps.
+ * Uses `@azure/storage-blob` and `@azure/identity` (regular deps, loaded lazily).
  */
 export class AzureBackend implements StorageBackend {
   readonly id = "azure";
@@ -23,8 +20,8 @@ export class AzureBackend implements StorageBackend {
 
   private async client(): Promise<any> {
     if (!this.container) {
-      const blob = await load("@azure/storage-blob");
-      const identity = await load("@azure/identity");
+      const blob = await loadDep("@azure/storage-blob");
+      const identity = await loadDep("@azure/identity");
       const svc = new blob.BlobServiceClient(
         `https://${this.account}.blob.core.windows.net`,
         new identity.DefaultAzureCredential(),
@@ -40,6 +37,7 @@ export class AzureBackend implements StorageBackend {
       await c.createIfNotExists();
       return { ok: true };
     } catch (e) {
+      if (e instanceof MissingDepError) return { ok: false, reason: e.message };
       return {
         ok: false,
         reason: `Azure not reachable — run \`az login\` (and check the account/container): ${(e as Error).message}`,

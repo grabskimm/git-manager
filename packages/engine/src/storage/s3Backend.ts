@@ -1,9 +1,5 @@
 import type { StorageBackend } from "./backend.js";
-
-/** Dynamic import that doesn't require the module to be installed at build time. */
-async function load(name: string): Promise<any> {
-  return import(name);
-}
+import { loadDep, MissingDepError } from "./optionalDep.js";
 
 async function streamToBuffer(body: any): Promise<Buffer> {
   if (!body) return Buffer.alloc(0);
@@ -34,7 +30,7 @@ export class S3Backend implements StorageBackend {
   }
 
   private async sdk(): Promise<any> {
-    const mod = await load("@aws-sdk/client-s3");
+    const mod = await loadDep("@aws-sdk/client-s3");
     if (!this.client) {
       this.client = new mod.S3Client({
         region: this.opts.region || process.env.AWS_REGION || "us-east-1",
@@ -50,6 +46,7 @@ export class S3Backend implements StorageBackend {
       await this.client.send(new mod.HeadBucketCommand({ Bucket: this.bucket }));
       return { ok: true };
     } catch (e) {
+      if (e instanceof MissingDepError) return { ok: false, reason: e.message };
       return {
         ok: false,
         reason: `S3 not reachable — run \`aws sso login\` / configure credentials (and check the bucket/region): ${(e as Error).message}`,
