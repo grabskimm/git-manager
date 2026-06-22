@@ -457,12 +457,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Is an engine already answering on our loopback port? (auth'd ping) */
+/**
+ * Is an engine already answering on our loopback port? Hits the unauthenticated
+ * `/healthz` probe so this stays side-effect-free — it must not call
+ * `loadOrCreateToken()`, which would mint a token file just to check liveness
+ * (and a token rotation would otherwise turn a 401 into a false "not running").
+ */
 async function isEngineRunning(): Promise<boolean> {
   try {
-    const res = await fetch(`${origin()}/api/ping`, {
-      headers: { Authorization: `Bearer ${loadOrCreateToken()}`, Origin: origin() },
-    });
+    const res = await fetch(`${origin()}/healthz`);
     return res.ok;
   } catch {
     return false;
@@ -487,16 +490,22 @@ async function startBackground(opts: { open: boolean }): Promise<void> {
 
   const script = fileURLToPath(import.meta.url);
   const out = fs.openSync(logPath(), "a");
-  let child;
+  let child: ReturnType<typeof spawn>;
   try {
     child = spawn(process.execPath, [script, "start", "--foreground"], {
       detached: true,
       stdio: ["ignore", out, out],
       env: process.env,
     });
-  } finally {
+  } catch (e) {
+    // spawn can throw synchronously (e.g. EACCES); don't fall through to
+    // child.unref() on an undefined child and mask the real error.
     fs.closeSync(out);
+    process.stderr.write(`Failed to start the engine: ${(e as Error).message}\n`);
+    process.exitCode = 1;
+    return;
   }
+  fs.closeSync(out);
   child.unref();
   if (child.pid) fs.writeFileSync(pidPath(), String(child.pid));
 
@@ -522,6 +531,13 @@ async function startBackground(opts: { open: boolean }): Promise<void> {
     }
     await delay(250);
   }
+  // Never came up — drop the pid we wrote so a later `gitm stop` can't target a
+  // reused PID.
+  try {
+    fs.rmSync(pidPath());
+  } catch {
+    // already gone
+  }
   process.stderr.write(
     `The engine did not come up within 10s. Check the log:\n  ${logPath()}\n`,
   );
@@ -546,17 +562,30 @@ async function cmdStop(): Promise<void> {
   } catch {
     // no pid file
   }
-  if (!pid) {
-    if (await isEngineRunning()) {
-      process.stdout.write(
-        `An engine is running at ${origin()} but there's no pid file ` +
-          `(likely started with \`gitm start --foreground\`). Stop it where it runs.\n`,
-      );
-      return;
+
+  // Confirm an engine is actually answering before we signal anything. If the
+  // port is silent, the pid file is stale — clearing it is correct, and we must
+  // NOT kill that PID (it may have been reused by an unrelated process).
+  if (!(await isEngineRunning())) {
+    if (pid) {
+      try {
+        fs.rmSync(pidPath());
+      } catch {
+        // already gone
+      }
     }
     process.stdout.write("No background engine is running.\n");
     return;
   }
+
+  if (!pid) {
+    process.stdout.write(
+      `An engine is running at ${origin()} but there's no pid file ` +
+        `(likely started with \`gitm start --foreground\`). Stop it where it runs.\n`,
+    );
+    return;
+  }
+
   try {
     process.kill(pid, "SIGTERM");
     process.stdout.write(`Stopped GitManager engine (pid ${pid}).\n`);
