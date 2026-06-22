@@ -137,9 +137,10 @@ on every push to `main`, driven by [Conventional Commits](https://www.convention
 So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The flow:
 
 1. **`.github/workflows/release.yml`** runs semantic-release: it computes the next
-   version from the commits, updates `CHANGELOG.md`, creates the **`v<version>` git
-   tag**, and publishes a **GitHub Release** with generated notes. (No releasable
-   commits → it does nothing.) npm publishing of `@git-manager/engine` is currently
+   version from the commits, creates the **`v<version>` git tag**, and publishes a
+   **GitHub Release** with generated notes. (No releasable commits → it does nothing.)
+   `main` is protected, so it does **not** commit a `CHANGELOG.md` back — the notes
+   live on the GitHub Release. npm publishing of `@git-manager/engine` is currently
    **disabled** — re-enable it via the note in `release.yml` + `.releaserc.json`.
 2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
    1. Writes the tag version into every `package.json` (the single source of truth
@@ -155,9 +156,13 @@ So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The
 > from a tag pushed by another workflow's default `GITHUB_TOKEN`. So semantic-release
 > must push the tag with a **Personal Access Token** — add a repo-scoped PAT as the
 > `RELEASE_TOKEN` secret. Without it the release + tag are still created, but you must
-> trigger the installer build manually (re-push the tag, or run the workflow). The
-> branch must also allow semantic-release to push the `CHANGELOG.md` commit (or drop
-> the `@semantic-release/git` plugin from `.releaserc.json`).
+> trigger the installer build manually (re-push the tag, or run the workflow).
+>
+> Because `main` is protected (changes require a PR), semantic-release does **not**
+> commit a `CHANGELOG.md` back to the branch — the `@semantic-release/git` plugin is
+> intentionally omitted, and the release notes live on the GitHub Release. To restore
+> an in-repo changelog, grant the `RELEASE_TOKEN` identity a ruleset bypass and re-add
+> `@semantic-release/git`.
 
 You can still cut a release by hand if needed — `git tag v1.2.0 && git push origin
 v1.2.0` triggers the installer build directly.
