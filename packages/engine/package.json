@@ -2,7 +2,15 @@
   "name": "@gitmanager/engine",
   "version": "1.0.0",
   "license": "MIT",
-  "private": true,
+  "description": "GitManager CLI + engine: a local-first, GitHub-like UI over your local git repos, with local PRs and automatic AI review. Provides the `gitm` / `gitmanager` commands.",
+  "keywords": ["git", "cli", "pull-request", "code-review", "local-first", "self-hosted"],
+  "homepage": "https://github.com/grabskimm/git-manager#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/grabskimm/git-manager.git",
+    "directory": "packages/engine"
+  },
+  "bugs": "https://github.com/grabskimm/git-manager/issues",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -12,6 +20,12 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsup && node scripts/copy-ui.mjs",
     "dev": "tsx watch src/cli.ts",

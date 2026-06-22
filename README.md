@@ -50,6 +50,15 @@ You need **Node ≥ 20** and **git**. For Claude reviews, install the
 [`claude`](https://docs.claude.com/en/docs/claude-code) CLI and log in once — everything else
 is bundled.
 
+The fastest way is the published CLI — **[install from npm](#install-from-npm)**:
+
+```bash
+npm install -g @gitmanager/engine    # the `gitm` / `gitmanager` commands (UI bundled in)
+gitm                                 # serves on http://127.0.0.1:4317 and opens your browser
+```
+
+Or run from a source checkout of this repo:
+
 ```bash
 npm install
 npm run build     # builds the UI, bundles it into the engine
@@ -86,9 +95,33 @@ process (tag → build → publish → auto-update), and CI signing setup, and
 [`docs/desktop-credentials.md`](docs/desktop-credentials.md) for generating the
 signing certificates and credentials.
 
-### Put `gitm` on your PATH
+### Install from npm
 
-The UI is bundled into the engine, so a global install is self-contained:
+The published CLI is **[`@gitmanager/engine`](https://www.npmjs.com/package/@gitmanager/engine)**
+— the engine with the UI already bundled in, so a single global install is fully
+self-contained (no build step, no separate UI package):
+
+```bash
+npm install -g @gitmanager/engine    # installs the `gitm` and `gitmanager` commands
+gitm                                 # start the engine + open the UI
+gitm --version                       # check your installed version
+```
+
+That's the whole app: `gitm` with no arguments starts the local engine and opens
+the UI at `http://127.0.0.1:4317`; the subcommands below drive PRs/backups from the
+shell. You still need **git** (and, for AI reviews, the optional
+[`claude`](https://docs.claude.com/en/docs/claude-code) CLI) on your PATH.
+
+To upgrade later: `npm install -g @gitmanager/engine@latest`. Prefer a native
+window with auto-update? Grab the [desktop app](#desktop-app) instead.
+
+> Releases are automated: every merge to `main` runs semantic-release, which
+> publishes the new version to npm **and** tags it for the installer build.
+
+### Install from source
+
+To run an unreleased checkout, the UI is bundled into the engine at build time, so a
+global install of the local workspace is also self-contained:
 
 ```bash
 npm install && npm run build

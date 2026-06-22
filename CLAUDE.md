@@ -141,5 +141,6 @@ the relevant `security.test.ts` / `identity.test.ts` coverage green.
   `main` (`.github/workflows/release.yml` + `.releaserc.json`), computing the next
   version from commit types (`feat` → minor, `fix` → patch, `feat!`/`BREAKING
   CHANGE` → major; `chore`/`docs`/`ci`/`refactor` → no release). It tags `v<version>`,
-  which triggers `desktop-release.yml` to build + publish the installers and
-  auto-update manifests. Write commit subjects accordingly.
+  publishes the CLI (`@gitmanager/engine`) to npm (gated on `NPM_TOKEN`), and the tag
+  triggers `desktop-release.yml` to build + publish the installers and auto-update
+  manifests. Write commit subjects accordingly.

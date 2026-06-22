@@ -99,8 +99,8 @@ Add your Apple ID email as **`APPLE_ID`** and the app-specific password as
 
 ### 6. Done
 
-With all five Apple secrets set, the next `v*` tag build on the `macos-13`/`macos-14`
-runners will sign with Developer ID, notarize via Apple's notary service, and staple
+With all five Apple secrets set, the next `v*` tag build on the `macos-14` (arm64)
+runner will sign with Developer ID, notarize via Apple's notary service, and staple
 the ticket. Missing any of them → an unsigned build with a warning.
 
 ---
