@@ -20,7 +20,7 @@
     var code = block.querySelector('code');
     if (!btn || !code) return;
     btn.addEventListener('click', function () {
-      var text = code.innerText;
+      var text = code.textContent;
       var done = function () {
         var prev = btn.textContent;
         btn.textContent = 'Copied';
@@ -32,6 +32,10 @@
       } else {
         var ta = document.createElement('textarea');
         ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.style.opacity = '0';
         document.body.appendChild(ta);
         ta.select();
         try { document.execCommand('copy'); done(); } catch (e) {}

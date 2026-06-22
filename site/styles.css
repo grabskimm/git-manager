@@ -96,6 +96,7 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   align-items: center;
   justify-content: space-between;
   height: 60px;
+  background: var(--bg); /* fallback where color-mix() is unsupported */
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: saturate(160%) blur(10px);
   border-bottom: 1px solid var(--border);
