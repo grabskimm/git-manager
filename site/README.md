@@ -30,8 +30,11 @@ manual **Run workflow** (`workflow_dispatch`). The live URL is
 - Keep every claim grounded in the repo's `README.md` / `CLAUDE.md`. Don't invent
   install commands, features, or versions; if a fact isn't in the repo, leave a
   `TODO:` comment instead of guessing.
-- The **version** in the footer (`v1.1.1`) is maintained by hand — bump it when a
-  new release ships (or replace it with whatever the current release is).
+- The **version** in the footer is stamped automatically by the Pages workflow
+  (between the `<!--VERSION-->…<!--/VERSION-->` markers) from the latest GitHub
+  release. The workflow also runs on `release: published`, so the site redeploys
+  with the fresh version whenever a new release ships. The value committed here is
+  just a fallback for local viewing.
 - **Hero visual:** the hero shows the real app screenshot (`assets/screenshot.png`,
   the `.shot` `<img>`) with a compact `gitm` terminal demo (`.terminal`) beneath it.
   To replace the screenshot, swap the file at `assets/screenshot.png` and keep the

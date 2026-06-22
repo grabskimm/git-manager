@@ -9,6 +9,9 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
+  # Redeploy whenever a new release is published, so the footer version refreshes.
+  release:
+    types: [published]
   workflow_dispatch:
 
 # Least-privilege token needed by the Pages deployment.
@@ -28,6 +31,23 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      # Stamp the latest release tag into the footer so the shown version is
+      # never stale (uses the release event's tag, else the latest release).
+      - name: Stamp latest release version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+          fi
+          if [ -n "$VERSION" ]; then
+            echo "Stamping $VERSION into the footer"
+            sed -i "s#<!--VERSION-->[^<]*<!--/VERSION-->#<!--VERSION-->$VERSION<!--/VERSION-->#" site/index.html
+          else
+            echo "No release found; leaving the default version in place"
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
