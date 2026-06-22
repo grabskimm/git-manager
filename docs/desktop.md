@@ -138,9 +138,9 @@ So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The
 
 1. **`.github/workflows/release.yml`** runs semantic-release: it computes the next
    version from the commits, updates `CHANGELOG.md`, creates the **`v<version>` git
-   tag**, publishes a **GitHub Release** with generated notes, and **publishes the CLI
-   (`@git-manager/engine`) to npm** (gated on the `NPM_TOKEN` secret). (No releasable
-   commits → it does nothing.)
+   tag**, and publishes a **GitHub Release** with generated notes. (No releasable
+   commits → it does nothing.) npm publishing of `@git-manager/engine` is currently
+   **disabled** — re-enable it via the note in `release.yml` + `.releaserc.json`.
 2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
    1. Writes the tag version into every `package.json` (the single source of truth
       for the installer + sidebar version + update comparison).
