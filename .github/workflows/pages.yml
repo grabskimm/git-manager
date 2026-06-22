@@ -9,7 +9,10 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
-  # Redeploy whenever a new release is published, so the footer version refreshes.
+  # When a release is published the workflow runs on the tag ref, which the
+  # github-pages environment protection won't let deploy. So on release we
+  # don't deploy directly — we re-run this workflow against main (an allowed
+  # ref); that dispatched run does the real build + deploy with the new version.
   release:
     types: [published]
   workflow_dispatch:
@@ -26,7 +29,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # On a published release, re-run this workflow against main (deploys from a
+  # tag are blocked by the github-pages environment protection). The dispatched
+  # run is a workflow_dispatch on main, which builds + deploys normally.
+  redeploy-on-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Re-run the Pages deploy on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -58,6 +76,7 @@ jobs:
           path: ./site
 
   deploy:
+    if: github.event_name != 'release'
     needs: build
     runs-on: ubuntu-latest
     environment:
