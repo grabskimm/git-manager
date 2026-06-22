@@ -2,6 +2,18 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+# [1.1.0](https://github.com/grabskimm/git-manager/compare/v1.0.1...v1.1.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* **desktop:** macOS update offers manual download (unsigned can't self-install) ([01d0f73](https://github.com/grabskimm/git-manager/commit/01d0f73c9174b6a0adc3e8bab430b0139812d0b5))
+
+
+### Features
+
+* **ui:** agents-first sidebar, collapsible agent groups, review model picker ([ccadf8c](https://github.com/grabskimm/git-manager/commit/ccadf8c572acfb762314fad1d9afd4ce5ecd5272))
+
 ## [1.0.1](https://github.com/grabskimm/git-manager/compare/v1.0.0...v1.0.1) (2026-06-22)
 
 
