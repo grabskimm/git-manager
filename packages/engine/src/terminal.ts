@@ -30,7 +30,8 @@ function ensureSpawnHelperExecutable(): void {
   try {
     const require = createRequire(import.meta.url);
     const ptyMain = require.resolve("node-pty");
-    // ptyMain is .../node-pty/lib/index.js → root is two levels up.
+    // ptyMain is .../node-pty/lib/index.js; `..` from its dirname is the package
+    // root (.../node-pty).
     const root = path.resolve(path.dirname(ptyMain), "..");
     const rels = [
       ["build", "Release", "spawn-helper"],
@@ -49,21 +50,28 @@ function ensureSpawnHelperExecutable(): void {
       );
     }
     for (const helper of candidates) {
-      if (!existsSync(helper)) continue;
-      const mode = statSync(helper).mode;
-      // Add execute bits for user/group/other if any are missing, without
-      // broadening read/write. This is the common case: npm/packaging didn't
-      // preserve +x on the spawn-helper.
-      if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o111);
-      // On macOS, also clear any Gatekeeper quarantine that would block exec.
-      if (process.platform === "darwin") {
-        try {
-          execFileSync("xattr", ["-d", "com.apple.quarantine", helper], {
-            stdio: "ignore",
-          });
-        } catch {
-          // no quarantine attribute present — fine.
+      // Per-candidate best-effort: a throw on one path (e.g. chmod on the
+      // read-only in-asar virtual path) must not abort the loop before the real
+      // app.asar.unpacked helper is reached.
+      try {
+        if (!existsSync(helper)) continue;
+        const mode = statSync(helper).mode;
+        // Add execute bits for user/group/other if any are missing, without
+        // broadening read/write. This is the common case: npm/packaging didn't
+        // preserve +x on the spawn-helper.
+        if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o111);
+        // On macOS, also clear any Gatekeeper quarantine that would block exec.
+        if (process.platform === "darwin") {
+          try {
+            execFileSync("xattr", ["-d", "com.apple.quarantine", helper], {
+              stdio: "ignore",
+            });
+          } catch {
+            // no quarantine attribute present — fine.
+          }
         }
+      } catch {
+        // this candidate isn't fixable (read-only/virtual) — try the next.
       }
     }
   } catch {
