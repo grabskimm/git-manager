@@ -2,6 +2,14 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.2.1](https://github.com/grabskimm/git-manager/compare/v1.2.0...v1.2.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **desktop:** inject login-shell PATH so engine finds claude/az/wrangler ([912bc28](https://github.com/grabskimm/git-manager/commit/912bc28b90b37e205e46646be02815be389a53e8))
+* **desktop:** probe a login-capable shell for PATH; handle fish ([a3520bd](https://github.com/grabskimm/git-manager/commit/a3520bdf0b15123c7350d03d36186da141718864))
+
 # [1.2.0](https://github.com/grabskimm/git-manager/compare/v1.1.1...v1.2.0) (2026-06-22)
 
 
