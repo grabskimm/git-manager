@@ -51,6 +51,7 @@ export async function runImplement(
   hub: WsHub,
   repo: Repo,
   pr: Pr,
+  model?: string,
 ): Promise<ImplementResult> {
   hub.broadcast("review.start", { prId: pr.id });
 
@@ -105,6 +106,7 @@ export async function runImplement(
       cwd: worktree,
       prompt,
       onToken: (token) => hub.broadcast("review.token", { prId: pr.id, token }),
+      model,
     });
 
     if (result.status === "skipped") return skip(result.reason);

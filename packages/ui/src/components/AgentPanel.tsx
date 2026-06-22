@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useApp } from "../state";
 import { api } from "../api";
@@ -22,6 +22,14 @@ const PROVIDER_ICON: Record<string, string> = {
 
 export function AgentPanel() {
   const { agents, config, repos, reloadAgents, setConfig } = useApp();
+  // Provider groups are collapsed by default; track which the user expanded.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleGroup = (src: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(src) ? next.delete(src) : next.add(src);
+      return next;
+    });
 
   useEffect(() => {
     if (!config?.agent_observe_enabled) return;
@@ -98,19 +106,30 @@ export function AgentPanel() {
         </div>
       )}
 
-      {/* ---- session groups ---- */}
+      {/* ---- session groups (collapsible per provider, collapsed by default) ---- */}
       {enabled &&
-        [...groups.entries()].map(([src, list]) => (
-          <div key={src} className="agent-group">
-            <div className="agent-group-header">
+        [...groups.entries()].map(([src, list]) => {
+          const isOpen = expanded.has(src);
+          const groupRunning = list.filter((s) => s.status === "running").length;
+          return (
+          <div key={src} className={`agent-group ${isOpen ? "open" : "collapsed"}`}>
+            <button
+              className="agent-group-header"
+              onClick={() => toggleGroup(src)}
+              aria-expanded={isOpen}
+              title={isOpen ? "Collapse" : "Expand"}
+            >
+              <span className="agent-group-caret">{isOpen ? "▾" : "▸"}</span>
               <span className="agent-provider-icon">
                 {PROVIDER_ICON[src] ?? "◉"}
               </span>
               <span className="agent-provider-name">{sourceName(src)}</span>
+              {groupRunning > 0 && <span className="session-status-dot running" />}
               <span className="agent-provider-count">{list.length}</span>
-            </div>
+            </button>
 
-            {list.map((s) => (
+            {isOpen &&
+            list.map((s) => (
               <div key={s.id} className={`session-card ${s.status}`}>
                 {/* status stripe is a ::before pseudo-element via CSS */}
 
@@ -150,7 +169,8 @@ export function AgentPanel() {
               </div>
             ))}
           </div>
-        ))}
+          );
+        })}
     </div>
   );
 }

@@ -2,10 +2,7 @@ import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
 import { runChat, type ChatMessage } from "../chat.js";
-
-// Models we let the UI pick. Mapped to `claude --model` aliases the CLI
-// resolves. "" means: don't pass --model (use the user's configured default).
-const ALLOWED_MODELS = new Set(["", "sonnet", "opus", "haiku"]);
+import { normalizeModel } from "../claudeProcess.js";
 
 export function registerChatRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post<{
@@ -17,8 +14,7 @@ export function registerChatRoutes(app: FastifyInstance, ctx: AppContext): void 
       return { error: "message_required" };
     }
     const history = Array.isArray(req.body?.history) ? req.body!.history! : [];
-    const requested = req.body?.model ?? "";
-    const model = ALLOWED_MODELS.has(requested) && requested ? requested : undefined;
+    const model = normalizeModel(req.body?.model);
     const repoId = req.body?.repoId?.trim() || undefined;
     const id = crypto.randomUUID();
     // Stream asynchronously over the WebSocket; respond immediately with the id.

@@ -31,6 +31,16 @@ const BUILD_SHA = process.env.GITMANAGER_BUILD_SHA ?? null;
 const NOTES_BASE =
   process.env.GITMANAGER_RELEASE_NOTES_BASE ??
   "https://github.com/grabskimm/git-manager/releases/tag";
+const RELEASES_LATEST = "https://github.com/grabskimm/git-manager/releases/latest";
+
+// macOS in-app auto-update needs a Developer ID signature: Squirrel.Mac validates
+// the downloaded .app's code signature and refuses an unsigned/ad-hoc build
+// ("code has no resources but signature indicates they must be present"). Until the
+// mac build is signed + notarized, surface updates on macOS as a MANUAL download
+// (open the release page) instead of attempting the in-app install. Windows (NSIS)
+// and Linux (AppImage) auto-update fine unsigned. Flip this to false once signing
+// is wired up (set the APPLE_* secrets) to re-enable in-app updates on macOS.
+const MAC_UPDATE_IS_MANUAL = process.platform === "darwin";
 
 // ---------------------------------------------------------------------------
 // Single-instance lock: a second launch focuses the existing window instead of
@@ -342,6 +352,12 @@ function registerIpc(): void {
     await autoUpdater.checkForUpdates();
   });
   ipcMain.handle("gm:download-update", async () => {
+    // On macOS (unsigned) the in-app install can't pass Squirrel's signature
+    // check — open the release page for a manual download instead of failing.
+    if (MAC_UPDATE_IS_MANUAL) {
+      openExternalSafely(RELEASES_LATEST);
+      return;
+    }
     await autoUpdater.downloadUpdate();
   });
   ipcMain.handle("gm:install-update", () => {
@@ -353,7 +369,12 @@ function registerIpc(): void {
   });
 
   autoUpdater.on("update-available", (info) => {
-    send("gm:update-available", { version: info.version, notesUrl: `${NOTES_BASE}/v${info.version}` });
+    send("gm:update-available", {
+      version: info.version,
+      notesUrl: `${NOTES_BASE}/v${info.version}`,
+      // macOS can't self-install unsigned — the renderer shows a manual download.
+      manual: MAC_UPDATE_IS_MANUAL,
+    });
   });
   autoUpdater.on("download-progress", (p) => {
     send("gm:update-progress", {

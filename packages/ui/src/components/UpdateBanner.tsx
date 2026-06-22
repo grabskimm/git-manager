@@ -96,8 +96,16 @@ export function UpdateBanner() {
             )}
           </div>
           <div className="update-banner-actions">
-            <button className="primary" onClick={() => void d.downloadUpdate()}>
-              Update now
+            <button
+              className="primary"
+              onClick={() => {
+                // On macOS this opens the release page (manual download); elsewhere
+                // it starts the in-app download. Dismiss the manual one immediately.
+                void d.downloadUpdate();
+                if (info.manual) later();
+              }}
+            >
+              {info.manual ? "Download" : "Update now"}
             </button>
             <button className="ghost" onClick={later}>
               Later
