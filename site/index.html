@@ -77,23 +77,27 @@
         <p class="hero__note reveal">Native app for Windows, macOS &amp; Linux — or run the CLI / web app from source.</p>
       </div>
 
-      <div class="hero__media">
-        <figure class="terminal reveal from-left" aria-label="Example gitm command-line session">
-          <div class="terminal__bar" aria-hidden="true">
-            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            <span class="title">gitm — zsh</span>
-          </div>
-          <pre class="terminal__body"><code><span class="pr">❯</span> gitm              <span class="c"># start engine, open UI</span>
+      <div class="showcase" role="group" aria-label="Interactive preview — select the gitm terminal or the app screenshot">
+        <button type="button" class="showcase__panel showcase__panel--terminal" aria-pressed="false">
+          <figure class="terminal reveal from-left" aria-label="Example gitm command-line session">
+            <div class="terminal__bar" aria-hidden="true">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="title">gitm — zsh</span>
+            </div>
+            <pre class="terminal__body"><code><span class="pr">❯</span> gitm              <span class="c"># start engine, open UI</span>
 <span class="pr">❯</span> gitm pr create    <span class="c"># open a local PR</span>
 <span class="pr">❯</span> gitm pr merge 42  <span class="c"># merge / fast-forward</span>
 <span class="pr">❯</span> gitm sync push    <span class="c"># back up: cloud or disk</span>
 <span class="pr">❯</span> <span class="cur" aria-hidden="true">&#9611;</span></code></pre>
-        </figure>
+          </figure>
+        </button>
 
-        <figure class="preview reveal from-right">
-          <img class="shot" src="assets/screenshot.png" width="3024" height="1604" loading="eager" decoding="async"
-               alt="The GitManager dashboard: a left sidebar listing local repositories, a summary showing 26 repositories with 1 open and 2 merged pull requests, a list of recent pull requests, and a right-hand panel of live AI agent sessions (Claude Code, OpenAI Codex, Antigravity)." />
-        </figure>
+        <button type="button" class="showcase__panel showcase__panel--shot" aria-pressed="true">
+          <figure class="preview reveal from-right">
+            <img class="shot" src="assets/screenshot.png" width="3024" height="1604" loading="eager" decoding="async"
+                 alt="The GitManager dashboard: a sidebar of local repositories, a summary of repos and pull requests, recent pull requests, and a panel of live AI agent sessions (Claude Code, OpenAI Codex, Antigravity)." />
+          </figure>
+        </button>
       </div>
     </section>
 

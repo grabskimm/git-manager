@@ -187,7 +187,10 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 /* ------------------------------ preview ------------------------------ */
 /* Two hero visuals side by side: small terminal + large screenshot, each
    sliding in from its own side. Stacks (small above large) on narrow screens. */
-.hero__media {
+/* Interactive showcase: two panels side by side; the selected one is bumped
+   out at full colour, the other stays visible but dimmed/greyed. Each panel is
+   a button (click / Enter / Space / arrows to select). Stacks below 960px. */
+.showcase {
   max-width: var(--maxw);
   margin: clamp(40px, 6vw, 64px) auto 0;
   padding-inline: 24px;
@@ -195,12 +198,55 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   align-items: center;
   gap: 24px;
 }
-.hero__media .preview  { flex: 1.5 1 0; min-width: 0; max-width: none; }
-.hero__media .terminal { flex: 1.25 1 0; min-width: 0; max-width: none; }
+.showcase__panel {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+  border-radius: var(--radius);
+  transition: opacity 0.35s ease, filter 0.35s ease, transform 0.35s ease;
+}
+.showcase__panel--shot     { flex: 1.5 1 0; }
+.showcase__panel--terminal { flex: 1.1 1 0; }
+.showcase__panel .preview,
+.showcase__panel .terminal { width: 100%; max-width: none; margin: 0; }
+.showcase__panel .terminal { box-shadow: none; } /* the panel owns elevation */
+/* not selected — visible but dimmed and recessed */
+.showcase__panel[aria-pressed="false"] {
+  opacity: 0.45;
+  filter: grayscale(0.6) saturate(0.65);
+  transform: scale(0.94);
+}
+.showcase__panel[aria-pressed="false"]:hover,
+.showcase__panel[aria-pressed="false"]:focus-visible {
+  opacity: 0.78;
+  filter: grayscale(0.2) saturate(0.9);
+  transform: scale(0.97);
+}
+/* selected — full colour, bumped out */
+.showcase__panel[aria-pressed="true"] {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.02);
+  position: relative;
+  z-index: 2;
+}
+.showcase__panel:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 4px; }
+
 @media (max-width: 960px) {
-  .hero__media { flex-direction: column; gap: 18px; }
-  .hero__media .preview  { flex: none; width: 100%; max-width: 880px; }
-  .hero__media .terminal { flex: none; width: 100%; max-width: 660px; }
+  .showcase { flex-direction: column; gap: 18px; }
+  .showcase__panel { width: 100%; }
+  .showcase__panel--shot     { flex: none; max-width: 880px; }
+  .showcase__panel--terminal { flex: none; max-width: 660px; }
+  .showcase__panel[aria-pressed="true"]  { transform: scale(1.01); }
+  .showcase__panel[aria-pressed="false"] { transform: scale(0.97); }
 }
 .preview {
   width: 100%;
@@ -447,4 +493,5 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   .js .reveal.from-right { opacity: 1; transform: none; transition: none; }
   .btn:hover, .card:hover { transform: none; }
   .terminal__body .cur { animation: none; }
+  .showcase__panel { transition: none; }
 }
