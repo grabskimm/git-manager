@@ -1,11 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import type { AppContext } from "../context.js";
-import { getRepo, listRepos, setRepoHidden } from "../store.js";
+import { getRepo, listRepos, listVisibleRepos, setRepoHidden } from "../store.js";
 import { diffRange, diffStat, listBranches, listTree, log, readFile } from "../git.js";
 
 export function registerRepoRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get<{ Querystring: { all?: string } }>("/api/repos", async (req) =>
-    listRepos(ctx.db, { includeHidden: req.query.all === "true" }),
+    req.query.all === "true" ? listRepos(ctx.db) : listVisibleRepos(ctx.db),
   );
 
   app.get<{ Params: { id: string } }>("/api/repos/:id", async (req, reply) => {
@@ -25,7 +25,7 @@ export function registerRepoRoutes(app: FastifyInstance, ctx: AppContext): void 
         reply.code(404);
         return { error: "repo_not_found" };
       }
-      if (typeof req.body.hidden === "boolean") {
+      if (typeof req.body?.hidden === "boolean") {
         setRepoHidden(ctx.db, req.params.id, req.body.hidden);
         ctx.hub.broadcast("repos.updated", {});
       }

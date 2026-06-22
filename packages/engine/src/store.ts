@@ -40,17 +40,31 @@ export function removeSourceDir(db: DB, id: string): void {
 
 // ---- repos ----
 
-export function listRepos(db: DB, opts: { includeHidden?: boolean } = {}): Repo[] {
-  const sql = opts.includeHidden
-    ? "SELECT * FROM repos ORDER BY display_name COLLATE NOCASE"
-    : "SELECT * FROM repos WHERE hidden = 0 ORDER BY display_name COLLATE NOCASE";
-  return db.prepare(sql).all() as Repo[];
+// SQLite stores booleans as INTEGER (0/1); coerce at the store boundary so
+// callers always see a real JS boolean in Repo.hidden.
+type RawRepoRow = Omit<Repo, "hidden"> & { hidden: number };
+function coerceRepo(row: unknown): Repo {
+  const r = row as RawRepoRow;
+  return { ...r, hidden: Boolean(r.hidden) };
+}
+
+export function listRepos(db: DB): Repo[] {
+  return db
+    .prepare("SELECT * FROM repos ORDER BY display_name COLLATE NOCASE")
+    .all()
+    .map(coerceRepo);
+}
+
+export function listVisibleRepos(db: DB): Repo[] {
+  return db
+    .prepare("SELECT * FROM repos WHERE hidden = 0 ORDER BY display_name COLLATE NOCASE")
+    .all()
+    .map(coerceRepo);
 }
 
 export function getRepo(db: DB, id: string): Repo | undefined {
-  return db.prepare("SELECT * FROM repos WHERE id = ?").get(id) as
-    | Repo
-    | undefined;
+  const row = db.prepare("SELECT * FROM repos WHERE id = ?").get(id);
+  return row ? coerceRepo(row) : undefined;
 }
 
 export function setRepoHidden(db: DB, id: string, hidden: boolean): void {

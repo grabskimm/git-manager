@@ -61,6 +61,8 @@ export function Settings() {
       const updated = await api.updateRepo(repo.id, { hidden: !repo.hidden });
       setAllRepos((rs) => rs.map((r) => (r.id === repo.id ? updated : r)));
       await reloadRepos();
+    } catch {
+      // non-fatal: leave the list unchanged on network error
     } finally {
       setReposBusy((s) => {
         const next = new Set(s);
