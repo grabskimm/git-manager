@@ -1,0 +1,54 @@
+name: Release
+
+# Versioning is driven by semantic-release on every push to main. It reads the
+# Conventional Commits since the last release (feat -> minor, fix -> patch,
+# feat!/BREAKING CHANGE -> major), computes the next version, updates CHANGELOG.md,
+# creates the `v<version>` git tag, and publishes a GitHub Release with notes.
+#
+# The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
+# installers and attaches them + the auto-update manifests to that release.
+#
+# IMPORTANT: for the tag push to trigger the desktop build, semantic-release must
+# push with a Personal Access Token (secret RELEASE_TOKEN) — tags pushed with the
+# default GITHUB_TOKEN do NOT trigger other workflows. Without RELEASE_TOKEN the
+# release is still created, but you must run desktop-release manually (or re-push
+# the tag) to attach installers.
+
+on:
+  push:
+    branches: [main]
+
+# Never run two releases at once; don't cancel an in-flight one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create tags/releases, commit the changelog
+  issues: write # semantic-release comments on released issues
+  pull-requests: write # …and PRs
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so commit-analyzer can see every commit
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Semantic release
+        env:
+          # Prefer a PAT so the version tag triggers the desktop build; fall back
+          # to GITHUB_TOKEN (release created, installers need a manual trigger).
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: >-
+          npx --yes
+          -p semantic-release@24
+          -p @semantic-release/changelog@6
+          -p @semantic-release/git@10
+          semantic-release

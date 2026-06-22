@@ -10,10 +10,8 @@ name: Desktop Release
 on:
   push:
     tags:
-      - "v*"
-    branches:
-      - main
-  pull_request:
+      - "v*" # release build (versioned + tagged by release.yml / semantic-release)
+  pull_request: # validation build only
 
 # Cancel superseded runs for the same ref.
 concurrency:

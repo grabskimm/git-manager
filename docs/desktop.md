@@ -126,31 +126,44 @@ which writes `build/icon.ico` (Windows — the MSI target requires it), `build/i
 
 ## Release process
 
-The git tag is the **single source of truth** for the installer version, the
-sidebar version, and the update comparison.
+Releases are **automated with [semantic-release](https://semantic-release.gitbook.io/)**
+on every push to `main`, driven by [Conventional Commits](https://www.conventionalcommits.org/):
 
-```bash
-# 1. Update the changelog (see CHANGELOG.md) for the new version.
-# 2. Tag and push:
-git tag v1.2.0
-git push origin v1.2.0
-```
+- `fix: …` → patch (`1.2.0 → 1.2.1`)
+- `feat: …` → minor (`1.2.0 → 1.3.0`)
+- `feat!: …` or a `BREAKING CHANGE:` footer → major (`1.2.0 → 2.0.0`)
+- `chore:` / `docs:` / `ci:` / `refactor:` … → no release
 
-Pushing a `v*` tag triggers `.github/workflows/desktop-release.yml`, which:
+So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The flow:
 
-1. Writes the tag version into every `package.json` (single source of truth).
-2. Builds the engine + UI + desktop shell.
-3. Runs `electron-builder` per-OS in a matrix:
-   - `windows-latest` → `.msi` + `.exe` (NSIS)
-   - `macos-14` (Apple Silicon, arm64) → `.dmg` + `.zip`
-   - `ubuntu-22.04` → `.AppImage` + `.deb`
-4. Signs/notarizes when the secrets are present (otherwise produces **unsigned**
-   installers and logs a warning — it never fails for missing secrets).
-5. Publishes a GitHub Release with all artifacts **and** the auto-update manifests.
+1. **`.github/workflows/release.yml`** runs semantic-release: it computes the next
+   version from the commits, updates `CHANGELOG.md`, creates the **`v<version>` git
+   tag**, and publishes a **GitHub Release** with generated notes. (No releasable
+   commits → it does nothing.)
+2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
+   1. Writes the tag version into every `package.json` (the single source of truth
+      for the installer + sidebar version + update comparison).
+   2. Builds the engine + UI + desktop shell.
+   3. Runs `electron-builder` per-OS: `windows-latest` → `.msi` + `.exe` (NSIS);
+      `macos-14` (arm64) → `.dmg` + `.zip`; `ubuntu-22.04` → `.AppImage` + `.deb`.
+   4. Signs/notarizes when the secrets are present (otherwise **unsigned** installers
+      with a warning — never a hard failure).
+   5. Publishes the installers **and** the auto-update manifests to the release.
 
-`pull_request` and pushes to `main` run the **validation build only**: compile +
-package on each OS, no signing, no publish — so packaging breakage is caught in
-PRs. Artifacts are uploaded for inspection (7-day retention).
+> **Required secret for the hand-off:** GitHub does **not** trigger one workflow
+> from a tag pushed by another workflow's default `GITHUB_TOKEN`. So semantic-release
+> must push the tag with a **Personal Access Token** — add a repo-scoped PAT as the
+> `RELEASE_TOKEN` secret. Without it the release + tag are still created, but you must
+> trigger the installer build manually (re-push the tag, or run the workflow). The
+> branch must also allow semantic-release to push the `CHANGELOG.md` commit (or drop
+> the `@semantic-release/git` plugin from `.releaserc.json`).
+
+You can still cut a release by hand if needed — `git tag v1.2.0 && git push origin
+v1.2.0` triggers the installer build directly.
+
+`pull_request` runs the **validation build only**: compile + package on each OS, no
+signing, no publish — so packaging breakage is caught in PRs. Artifacts are uploaded
+for inspection (7-day retention).
 
 > **macOS arch note:** the matrix builds **Apple Silicon (arm64)** only. To also
 > ship Intel, add a `macos-13` matrix entry (`arch: x64`, `ebflags: --x64`) and an
