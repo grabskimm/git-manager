@@ -353,8 +353,8 @@ Stored in SQLite (`config` table), editable in **Settings → Features**:
 | `sync_interval_minutes` | `10` | Interval for scheduled backups when enabled |
 
 Environment overrides: `GITMANAGER_PORT` (default `4317`), `GITMANAGER_HOME` (default
-`~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`), `GITMANAGER_NO_OPEN` (set to
-never launch a browser, even for `gitm open`).
+`~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`), `GITMANAGER_NO_OPEN` (set to `1`
+to never launch a browser, even for `gitm open`).
 
 The background engine writes its pid and logs to `~/.gitmanager/engine.pid` and
 `~/.gitmanager/engine.log` (`gitm stop` reads the pid file).

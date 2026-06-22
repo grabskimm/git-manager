@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
 import { logPath, pidPath } from "./paths.js";
+import { appVersion } from "./version.js";
 import { setVerbose } from "./logger.js";
+
+/** The npm package that ships the `gitm` CLI (engine + bundled UI). */
+const NPM_PACKAGE = "@git-manager/engine";
 
 interface Pr {
   id: string;
@@ -474,9 +478,15 @@ async function isEngineRunning(): Promise<boolean> {
 
 /**
  * Start the engine detached so the terminal stays free. Re-execs this same CLI
- * as `start --foreground` with stdio piped to the log file, records the pid, and
- * waits until the engine answers before reporting. Idempotent: if one is already
- * running we don't spawn a second (which would EADDRINUSE).
+ * as `start --foreground` (with GITMANAGER_BACKGROUND=1 so the engine writes its
+ * own pid file once it has actually bound the port) and waits until it answers
+ * before reporting. Idempotent: if one is already running we don't spawn a
+ * second (which would EADDRINUSE).
+ *
+ * The launcher deliberately does NOT write the pid file: only the process that
+ * wins the port should own it, and it must record its own pid after binding, so
+ * a losing concurrent start (or a slow startup) can never leave a dead/foreign
+ * pid behind for `gitm stop` to signal.
  */
 async function startBackground(opts: { open: boolean }): Promise<void> {
   if (await isEngineRunning()) {
@@ -489,13 +499,23 @@ async function startBackground(opts: { open: boolean }): Promise<void> {
   }
 
   const script = fileURLToPath(import.meta.url);
+  // Under tsx/ts-node the entrypoint is a .ts file plain Node can't execute, so
+  // a detached `node <script>` would fail. Run in the foreground instead — this
+  // keeps `npm run dev` (which execs src/cli.ts) working.
+  if (/\.tsx?$/.test(script)) {
+    process.stdout.write(
+      "Running from a TypeScript entrypoint (dev) — starting in the foreground.\n",
+    );
+    return startServer();
+  }
+
   const out = fs.openSync(logPath(), "a");
   let child: ReturnType<typeof spawn>;
   try {
     child = spawn(process.execPath, [script, "start", "--foreground"], {
       detached: true,
       stdio: ["ignore", out, out],
-      env: process.env,
+      env: { ...process.env, GITMANAGER_BACKGROUND: "1" },
     });
   } catch (e) {
     // spawn can throw synchronously (e.g. EACCES); don't fall through to
@@ -507,7 +527,6 @@ async function startBackground(opts: { open: boolean }): Promise<void> {
   }
   fs.closeSync(out);
   child.unref();
-  if (child.pid) fs.writeFileSync(pidPath(), String(child.pid));
 
   // Wait (up to ~10s) for the engine to accept requests before reporting.
   const deadline = Date.now() + 10_000;
@@ -531,15 +550,11 @@ async function startBackground(opts: { open: boolean }): Promise<void> {
     }
     await delay(250);
   }
-  // Never came up — drop the pid we wrote so a later `gitm stop` can't target a
-  // reused PID.
-  try {
-    fs.rmSync(pidPath());
-  } catch {
-    // already gone
-  }
+  // Didn't come up in time. Don't touch the pid file — the engine owns it and
+  // may simply be slow to bind; deleting it could orphan a real background
+  // engine from `gitm stop`.
   process.stderr.write(
-    `The engine did not come up within 10s. Check the log:\n  ${logPath()}\n`,
+    `The engine isn't responding yet. It may still be starting — check the log:\n  ${logPath()}\n`,
   );
   process.exitCode = 1;
 }
@@ -604,6 +619,85 @@ async function cmdStop(): Promise<void> {
   }
 }
 
+/** Is this CLI running from a global npm install (vs. a source/dev checkout)? */
+function isInstalledPackage(): boolean {
+  return fileURLToPath(import.meta.url).includes(`${path.sep}node_modules${path.sep}`);
+}
+
+/** Run `npm` to completion, echoing its output. Resolves the exit code + stderr. */
+function runNpm(args: string[]): Promise<{ code: number; stderr: string }> {
+  const bin = process.platform === "win32" ? "npm.cmd" : "npm";
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(bin, args, { stdio: ["ignore", "inherit", "pipe"] });
+    } catch (e) {
+      resolve({ code: -1, stderr: String(e) });
+      return;
+    }
+    let stderr = "";
+    child.stderr?.on("data", (d: Buffer) => {
+      const s = d.toString();
+      stderr += s;
+      process.stderr.write(s); // surface progress/errors live
+    });
+    child.on("error", (e) => resolve({ code: -1, stderr: stderr || String(e) }));
+    child.on("close", (code) => resolve({ code: code ?? -1, stderr }));
+  });
+}
+
+/**
+ * One-shot upgrade: `npm install -g <pkg>@latest`, then bounce the background
+ * engine so the new build is actually serving. Only meaningful for a global npm
+ * install — a source/dev checkout is told to use the build-from-source flow.
+ */
+async function cmdUpdate(): Promise<void> {
+  if (!isInstalledPackage()) {
+    process.stderr.write(
+      `This looks like a source/dev build (${fileURLToPath(import.meta.url)}).\n` +
+        `\`gitm update\` only upgrades the published npm package. To update this checkout:\n` +
+        `  git pull && npm install && npm run build && npm install -g ./packages/engine\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  process.stdout.write(`Updating ${NPM_PACKAGE} (current ${appVersion().version})…\n`);
+  const res = await runNpm(["install", "-g", `${NPM_PACKAGE}@latest`]);
+  if (res.code !== 0) {
+    const notPublished = /E404|404 Not Found|No matching version|is not in (this|the npm) registry/i.test(
+      res.stderr,
+    );
+    const perm = /EACCES|permission denied|EPERM/i.test(res.stderr);
+    if (notPublished) {
+      process.stderr.write(
+        `\n${NPM_PACKAGE} isn't published to npm yet. Until it is, upgrade from a source ` +
+          `checkout:\n  git pull && npm install && npm run build && npm install -g ./packages/engine\n`,
+      );
+    } else if (perm) {
+      process.stderr.write(
+        `\nnpm couldn't write the global package (permission denied). Re-run with the right ` +
+          `privileges (e.g. sudo) or fix your npm prefix.\n`,
+      );
+    } else {
+      process.stderr.write(`\nUpdate failed (npm exited ${res.code}).\n`);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  // Bounce a running background engine so the upgrade actually takes effect.
+  // (Replacing the on-disk CLI doesn't restart an already-running process.)
+  if (await isEngineRunning()) {
+    process.stdout.write("Restarting the background engine…\n");
+    await cmdStop();
+    await delay(500); // let the port free
+    await startBackground({ open: false });
+  } else {
+    process.stdout.write("Update complete. Start the engine with `gitm`.\n");
+  }
+}
+
 /** Invoked by Claude Code hooks to nudge an agent refresh; fire-and-forget. */
 async function hookEvent(): Promise<void> {
   try {
@@ -623,6 +717,7 @@ function help(): void {
       "  gitm start --foreground (-f)         Start the engine in the foreground (Ctrl-C to stop)",
       "  gitm open                            Open the UI (starts the engine in the background if needed)",
       "  gitm stop                            Stop the background engine",
+      "  gitm update                          Upgrade the global CLI to the latest npm release + restart",
       "  gitm source add <path|url>           Add a source directory (or clone a URL)",
       "  gitm source list                     List source directories",
       "  gitm source remove <id>              Remove a source directory",
@@ -672,6 +767,15 @@ async function startServer(): Promise<void> {
     }
     throw new Error(msg);
   }
+  // When launched as a background engine, record our own pid now that the port
+  // is bound — only the process that actually owns the port writes the pid file.
+  if (process.env.GITMANAGER_BACKGROUND === "1") {
+    try {
+      fs.writeFileSync(pidPath(), String(process.pid));
+    } catch {
+      // non-fatal: `gitm stop` will fall back to its port check
+    }
+  }
   engine.ctx.agents.installHooks("gitm hook-event");
   process.stdout.write(
     [
@@ -714,6 +818,9 @@ async function main(): Promise<void> {
       return cmdOpen();
     case "stop":
       return cmdStop();
+    case "update":
+    case "upgrade":
+      return cmdUpdate();
     case "hook-event":
       await hookEvent();
       return;
