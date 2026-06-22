@@ -27,7 +27,15 @@ on:
   push:
     tags:
       - "v*"
-  pull_request: # validation build only
+  pull_request:
+    # Validation build only — skip it for docs/script-only changes (they don't
+    # affect packaging), which also avoids a wasted 3-OS build and the red-X when
+    # such a PR is merged before its build checks out the (now-gone) merge ref.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "scripts/**"
+      - "LICENSE"
 
 # Cancel superseded runs for the same target.
 concurrency:
