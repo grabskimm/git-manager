@@ -15,6 +15,12 @@ npm-workspaces monorepo, ESM throughout, Node ≥ 20.
 - `packages/ui` — React + Vite SPA (React Router). Talks to the engine over
   loopback HTTP + a WebSocket. `src/types.ts` mirrors the engine's domain types
   by hand — keep them in sync.
+- `packages/desktop` — Electron shell (Windows/macOS/Linux). A thin
+  shell + lifecycle manager + updater: `src/main.ts` picks a free loopback port,
+  spawns the **same** engine as a child on Electron's bundled Node
+  (`ELECTRON_RUN_AS_NODE`), waits on `/healthz`, then loads the UI in a hardened
+  webview. The engine and UI run **unchanged** — feature parity is automatic, so
+  don't fork behaviour into the desktop layer. See `docs/desktop.md`.
 
 ### Engine modules worth knowing
 
@@ -62,10 +68,30 @@ npm run build        # build ui then engine; engine bundles ui into dist/ui
 npm test             # engine vitest suite (the only test suite)
 npm run typecheck    # tsc --noEmit for BOTH packages
 npm start            # run the built engine (node dist/cli.js)
+
+npm run desktop      # build engine+ui, then launch the Electron app
+npm run desktop:dist # build local installers -> packages/desktop/release/
 ```
 
 The `gitm` CLI subcommands (`gitm pr create`, `gitm sync push`, etc.) talk to a
 **running** engine over loopback using the token — start the engine first.
+
+### Desktop native modules — do not regress
+
+The engine runs on Electron's bundled Node, so its native modules must match the
+**Electron ABI**, not the system Node ABI:
+
+- **`better-sqlite3`** is a V8 addon — it **must** be rebuilt for Electron
+  (`npm run desktop` and CI do this; `postdesktop` restores the system-Node build
+  afterward so `npm test` / `npm start` keep working).
+- **`node-pty`** is **N-API** (ABI-stable) — it must **not** be rebuilt for
+  Electron. Recompiling it under `@electron/rebuild` deadlocks the build, so
+  `electron-builder.yml` sets `npmRebuild: false` and we rebuild *only*
+  better-sqlite3 explicitly. Leave node-pty's prebuilt binary alone.
+
+Packaging stages a self-contained, de-symlinked copy of the engine under
+`packages/desktop` (asar can't follow the workspace symlink) — `scripts/dist.mjs`
+locally, an explicit CI step otherwise.
 
 ## Security model — do not regress
 
@@ -111,3 +137,9 @@ the relevant `security.test.ts` / `identity.test.ts` coverage green.
 - Do **not** create PRs unless explicitly asked.
 - Do **not** put any model identifier in commits, PR bodies, or code — chat only.
 - Push with `git push -u origin <branch>`; retry network failures with backoff.
+- **Conventional Commits** drive releases: semantic-release runs on every push to
+  `main` (`.github/workflows/release.yml` + `.releaserc.json`), computing the next
+  version from commit types (`feat` → minor, `fix` → patch, `feat!`/`BREAKING
+  CHANGE` → major; `chore`/`docs`/`ci`/`refactor` → no release). It tags `v<version>`,
+  which triggers `desktop-release.yml` to build + publish the installers and
+  auto-update manifests. Write commit subjects accordingly.
