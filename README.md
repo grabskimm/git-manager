@@ -309,3 +309,7 @@ packages/
 
 Local-first (remotes are opt-in, GitHub-only). Simple branch-and-merge (no squash/rebase-on-merge).
 Observe-only agents (control seams exist but are stubbed). No conflict-resolution editor.
+
+## License
+
+[MIT](LICENSE) — provided "as is", without warranty or liability.
