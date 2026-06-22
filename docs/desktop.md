@@ -143,7 +143,9 @@ So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The
    the changelog commit only lands if the `RELEASE_TOKEN` identity is on the branch
    ruleset's **bypass list**. npm publishing of `@git-manager/engine` is currently
    **disabled** — re-enable it via the note in `release.yml` + `.releaserc.json`.
-2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
+2. Publishing that Release triggers **`.github/workflows/desktop-release.yml`** (on
+   `release: published` — not the tag push, which GitHub suppresses because the tag
+   points at the `[skip ci]` changelog commit), which:
    1. Writes the tag version into every `package.json` (the single source of truth
       for the installer + sidebar version + update comparison).
    2. Builds the engine + UI + desktop shell.
