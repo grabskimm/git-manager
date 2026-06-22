@@ -10,6 +10,18 @@ export function claudeBin(): string {
 }
 
 /**
+ * Model aliases the UI is allowed to request (mapped to `claude --model`). Any
+ * other value (including "") falls back to the user's configured default by
+ * passing no `--model` flag.
+ */
+export const ALLOWED_MODELS = new Set(["sonnet", "opus", "haiku"]);
+
+/** Validate a requested model alias; returns undefined to mean "use the default". */
+export function normalizeModel(requested: string | undefined | null): string | undefined {
+  return requested && ALLOWED_MODELS.has(requested) ? requested : undefined;
+}
+
+/**
  * A dedicated cwd for all internal `claude --print` subprocess calls.
  * Using a fixed path inside GITMANAGER_HOME ensures the Claude Code agent
  * transcript discovery never picks up our review/chat sessions as user

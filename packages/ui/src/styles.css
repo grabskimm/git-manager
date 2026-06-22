@@ -629,7 +629,21 @@ input:focus, textarea:focus, select:focus {
   gap: 8px;
   padding: 8px 14px 7px;
   background: var(--bg-elev-2);
+  border: none;
   border-bottom: 1px solid var(--border-muted);
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+.agent-group-header:hover { background: var(--bg-elev); }
+.agent-group.collapsed .agent-group-header { border-bottom: none; }
+.agent-group-caret {
+  font-size: 10px;
+  color: var(--fg-faint);
+  width: 10px;
+  flex-shrink: 0;
 }
 .agent-provider-icon {
   display: inline-flex;

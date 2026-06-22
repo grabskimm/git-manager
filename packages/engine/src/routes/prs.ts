@@ -16,6 +16,7 @@ import { attemptMerge, dryRunMerge } from "../merge.js";
 import { getConfig } from "../config.js";
 import { runReview, runReviewReply } from "../review.js";
 import { runImplement } from "../implement.js";
+import { normalizeModel } from "../claudeProcess.js";
 
 export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get<{ Querystring: { repoId?: string } }>("/api/prs", async (req) =>
@@ -295,7 +296,7 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
     return entry;
   });
 
-  app.post<{ Params: { id: string }; Body: { message?: string } }>(
+  app.post<{ Params: { id: string }; Body: { message?: string; model?: string } }>(
     "/api/prs/:id/reply",
     async (req, reply) => {
       const pr = getPr(ctx.db, req.params.id);
@@ -313,18 +314,19 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
         reply.code(400);
         return { error: "message_required" };
       }
+      const model = normalizeModel(req.body?.model);
       // Persist the author's reply first so it shows immediately, then run
       // Claude's response asynchronously (streams over review.* events).
       addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
       ctx.hub.broadcast("pr.updated", { prId: pr.id });
-      void runReviewReply(ctx.db, ctx.hub, repo, pr).then(() => {
+      void runReviewReply(ctx.db, ctx.hub, repo, pr, model).then(() => {
         ctx.hub.broadcast("pr.updated", { prId: pr.id });
       });
       return { ok: true, started: true };
     },
   );
 
-  app.post<{ Params: { id: string }; Body: { message?: string } }>(
+  app.post<{ Params: { id: string }; Body: { message?: string; model?: string } }>(
     "/api/prs/:id/implement",
     async (req, reply) => {
       if (!getConfig(ctx.db).implement_enabled) {
@@ -350,31 +352,35 @@ export function registerPrRoutes(app: FastifyInstance, ctx: AppContext): void {
         reply.code(400);
         return { error: "message_required" };
       }
+      const model = normalizeModel(req.body?.model);
       // The message must be persisted to the thread BEFORE runImplement is
       // called — it reads the thread via listThread to build the Claude prompt.
       addThreadEntry(ctx.db, { pr_id: pr.id, author: "user", kind: "comment", body: message });
       ctx.hub.broadcast("pr.updated", { prId: pr.id });
-      void runImplement(ctx.db, ctx.hub, repo, pr).then(() => {
+      void runImplement(ctx.db, ctx.hub, repo, pr, model).then(() => {
         ctx.hub.broadcast("pr.updated", { prId: pr.id });
       });
       return { ok: true, started: true };
     },
   );
 
-  app.post<{ Params: { id: string } }>("/api/prs/:id/review", async (req, reply) => {
-    const pr = getPr(ctx.db, req.params.id);
-    if (!pr) {
-      reply.code(404);
-      return { error: "pr_not_found" };
-    }
-    const repo = getRepo(ctx.db, pr.repo_id);
-    if (!repo) {
-      reply.code(404);
-      return { error: "repo_not_found" };
-    }
-    void runReview(ctx.db, ctx.hub, repo, pr).then(() => {
-      ctx.hub.broadcast("pr.updated", { prId: pr.id });
-    });
-    return { ok: true, started: true };
-  });
+  app.post<{ Params: { id: string }; Body: { model?: string } }>(
+    "/api/prs/:id/review",
+    async (req, reply) => {
+      const pr = getPr(ctx.db, req.params.id);
+      if (!pr) {
+        reply.code(404);
+        return { error: "pr_not_found" };
+      }
+      const repo = getRepo(ctx.db, pr.repo_id);
+      if (!repo) {
+        reply.code(404);
+        return { error: "repo_not_found" };
+      }
+      void runReview(ctx.db, ctx.hub, repo, pr, normalizeModel(req.body?.model)).then(() => {
+        ctx.hub.broadcast("pr.updated", { prId: pr.id });
+      });
+      return { ok: true, started: true };
+    },
+  );
 }

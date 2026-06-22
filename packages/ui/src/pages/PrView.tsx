@@ -7,9 +7,18 @@ import { StatusBadge } from "../components/StatusBadge";
 import { Markdown } from "../components/Markdown";
 import type { DiffResponse, PrDetail } from "../types";
 
+// Models the review/reply/implement actions may use. "" = the user's `claude` default.
+const MODELS: { value: string; label: string }[] = [
+  { value: "", label: "Default model" },
+  { value: "sonnet", label: "Sonnet" },
+  { value: "opus", label: "Opus" },
+  { value: "haiku", label: "Haiku" },
+];
+
 export function PrView() {
   const { prId = "" } = useParams();
   const { onWs, config, userName } = useApp();
+  const [model, setModel] = useState<string>(() => localStorage.getItem("gm_review_model") ?? "");
   const [detail, setDetail] = useState<PrDetail | null>(null);
   const [diff, setDiff] = useState<DiffResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,11 +63,11 @@ export function PrView() {
     setStreamKind("reply");
     setError(null);
     try {
-      await api.replyToReview(prId, message);
+      await api.replyToReview(prId, message, model || undefined);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [reply, prId]);
+  }, [reply, prId, model]);
 
   const sendImplement = useCallback(async () => {
     const message = reply.trim();
@@ -67,11 +76,11 @@ export function PrView() {
     setStreamKind("implement");
     setError(null);
     try {
-      await api.implementReview(prId, message);
+      await api.implementReview(prId, message, model || undefined);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [reply, prId]);
+  }, [reply, prId, model]);
 
   const load = useCallback(async () => {
     try {
@@ -198,11 +207,26 @@ export function PrView() {
           disabled={busy !== null}
           onClick={() => {
             setStreamKind("review");
-            void act("review", () => api.rereview(pr.id));
+            void act("review", () => api.rereview(pr.id, model || undefined));
           }}
         >
           {busy === "review" ? "…" : "Re-run review"}
         </button>
+        <select
+          value={model}
+          onChange={(e) => {
+            setModel(e.target.value);
+            localStorage.setItem("gm_review_model", e.target.value);
+          }}
+          title="Model used for Claude review, reply, and implement"
+          style={{ width: 150 }}
+        >
+          {MODELS.map((m) => (
+            <option key={m.value} value={m.value}>
+              {m.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {pr.status === "conflicted" && (

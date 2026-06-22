@@ -59,6 +59,7 @@ export async function runReview(
   hub: WsHub,
   repo: Repo,
   pr: Pr,
+  model?: string,
 ): Promise<ReviewResult> {
   hub.broadcast("review.start", { prId: pr.id });
 
@@ -112,6 +113,7 @@ export async function runReview(
   const result = await runClaudeStreaming({
     prompt: fullPrompt,
     onToken: (token) => hub.broadcast("review.token", { prId: pr.id, token }),
+    model,
   });
 
   if (result.status === "skipped") return skip(result.reason);
@@ -148,7 +150,13 @@ function renderConversation(thread: PrThreadEntry[]): string {
  * over the same `review.*` WebSocket events the UI already handles, and
  * persists Claude's reply as a `claude`-authored comment. Never hard-fails.
  */
-export async function runReviewReply(db: DB, hub: WsHub, repo: Repo, pr: Pr): Promise<ReviewResult> {
+export async function runReviewReply(
+  db: DB,
+  hub: WsHub,
+  repo: Repo,
+  pr: Pr,
+  model?: string,
+): Promise<ReviewResult> {
   hub.broadcast("review.start", { prId: pr.id });
 
   const skip = (reason: string): ReviewResult => {
@@ -208,6 +216,7 @@ export async function runReviewReply(db: DB, hub: WsHub, repo: Repo, pr: Pr): Pr
   const result = await runClaudeStreaming({
     prompt,
     onToken: (token) => hub.broadcast("review.token", { prId: pr.id, token }),
+    model,
   });
 
   if (result.status === "skipped") return skip(result.reason);

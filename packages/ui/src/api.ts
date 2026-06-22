@@ -127,17 +127,20 @@ export const api = {
   mergePr: (id: string) => request<Pr>(`/api/prs/${id}/merge`, { method: "POST" }),
   closePr: (id: string) => request<Pr>(`/api/prs/${id}/close`, { method: "POST" }),
   refreshPr: (id: string) => request<Pr>(`/api/prs/${id}/refresh`, { method: "POST" }),
-  rereview: (id: string) =>
-    request<{ ok: boolean }>(`/api/prs/${id}/review`, { method: "POST" }),
-  replyToReview: (id: string, message: string) =>
+  rereview: (id: string, model?: string) =>
+    request<{ ok: boolean }>(`/api/prs/${id}/review`, {
+      method: "POST",
+      body: JSON.stringify({ model }),
+    }),
+  replyToReview: (id: string, message: string, model?: string) =>
     request<{ ok: boolean; started: boolean }>(`/api/prs/${id}/reply`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, model }),
     }),
-  implementReview: (id: string, message: string) =>
+  implementReview: (id: string, message: string, model?: string) =>
     request<{ ok: boolean; started: boolean }>(`/api/prs/${id}/implement`, {
       method: "POST",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, model }),
     }),
   mergeability: (id: string) =>
     request<{ mergeable: "clean" | "conflict" | "error" }>(`/api/prs/${id}/mergeability`),

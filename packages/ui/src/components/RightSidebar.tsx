@@ -15,7 +15,7 @@ export function RightSidebar() {
   const chatEnabled = config?.chat_enabled ?? false;
 
   const [collapsed, setCollapsed] = useState(false);
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>("agents");
   const [unread, setUnread] = useState(false);
 
   // Fall back to the Agents tab whenever chat is turned off.
@@ -46,12 +46,6 @@ export function RightSidebar() {
 
       <div className="rs-body">
         <div className="rs-tabs">
-          {chatEnabled && (
-            <button className={`rs-tab ${tab === "chat" ? "active" : ""}`} onClick={openChat}>
-              💬 Chat
-              {unread && tab !== "chat" && <span className="rs-unread" title="New reply" />}
-            </button>
-          )}
           <button
             className={`rs-tab ${tab === "agents" ? "active" : ""}`}
             onClick={() => setTab("agents")}
@@ -59,6 +53,12 @@ export function RightSidebar() {
             🤖 Agents
             {running > 0 && <span className="rs-tab-badge running">{running}</span>}
           </button>
+          {chatEnabled && (
+            <button className={`rs-tab ${tab === "chat" ? "active" : ""}`} onClick={openChat}>
+              💬 Chat
+              {unread && tab !== "chat" && <span className="rs-unread" title="New reply" />}
+            </button>
+          )}
 
           <span className="spacer" />
           <button
