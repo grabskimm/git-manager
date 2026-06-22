@@ -11,6 +11,12 @@ export interface DesktopUpdateInfo {
   version: string;
   /** Link to the release notes / changelog entry for this version. */
   notesUrl?: string;
+  /**
+   * When true, the platform can't self-install (e.g. an unsigned macOS build):
+   * the UI should offer a manual download from the release page rather than an
+   * in-app "Update now" / "Relaunch".
+   */
+  manual?: boolean;
 }
 
 export interface DesktopUpdateProgress {

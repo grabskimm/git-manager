@@ -115,7 +115,7 @@ export function AboutSettings() {
               </div>
               <div className="update-banner-actions" style={{ marginTop: 8 }}>
                 <button className="primary" onClick={() => void d.downloadUpdate()}>
-                  Update now
+                  {update.manual ? "Download" : "Update now"}
                 </button>
               </div>
             </div>

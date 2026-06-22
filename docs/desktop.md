@@ -199,11 +199,20 @@ renderer, and the **in-app upgrade prompt** (`packages/ui/src/components/UpdateB
 shows a non-blocking banner near the sidebar with the new version, a release-notes
 link, **Update now**, and **Later**:
 
-- **Update now** → downloads the signed update (progress shown in the banner), then
+- **Update now** → downloads the update (progress shown in the banner), then
   prompts to **Relaunch** to install into the new version.
 - **Later** → dismissed for that version (stored in `localStorage`), so it doesn't
   nag on every focus.
 - Failures surface inline with a **Retry**.
+
+> **macOS needs signing for in-app updates.** Squirrel.Mac validates the downloaded
+> `.app`'s code signature and refuses an unsigned/ad-hoc build (`code has no resources
+> but signature indicates they must be present`). Until the mac build is signed +
+> notarized (set the `APPLE_*` secrets), the banner on macOS shows **Download**
+> instead of **Update now** — it opens the [Releases page](https://github.com/grabskimm/git-manager/releases/latest)
+> for a manual drag-to-Applications install. Windows (NSIS) and Linux (AppImage)
+> auto-update fine while unsigned. The toggle lives in `MAC_UPDATE_IS_MANUAL`
+> (`packages/desktop/src/main.ts`) — flip it once signing is in place.
 
 Downloads are verified by electron-updater against the publisher (and, on macOS, the
 code signature) before install.
