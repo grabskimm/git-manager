@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.0.1](https://github.com/grabskimm/git-manager/compare/v1.0.0...v1.0.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **ci:** skip PR packaging validation for docs/script-only changes ([2dc6bde](https://github.com/grabskimm/git-manager/commit/2dc6bde64650a302b967c47cb5578dcdb879e8b2))
+
 # 1.0.0 (2026-06-22)
 
 
