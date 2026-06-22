@@ -9,6 +9,7 @@
 # Options (env vars):
 #   GM_VERSION=v1.2.3   install a specific tag instead of the latest release
 #   GM_REPO=owner/repo  override the source repo (default grabskimm/git-manager)
+#   GITHUB_TOKEN=…      lift the API rate limit (60/hr per IP) / private repos
 set -eu
 
 REPO="${GM_REPO:-grabskimm/git-manager}"
@@ -20,6 +21,17 @@ have() { command -v "$1" >/dev/null 2>&1; }
 
 have curl || err "curl is required"
 
+# Optional token (GITHUB_TOKEN/GH_TOKEN) lifts the unauthenticated API rate limit
+# (60/hr per IP) and allows private repos.
+TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+api_get() {
+  if [ -n "$TOKEN" ]; then
+    curl -fsSL -H "Authorization: Bearer $TOKEN" "$1"
+  else
+    curl -fsSL "$1"
+  fi
+}
+
 # Resolve the release JSON (a specific tag, or the latest).
 if [ -n "${GM_VERSION:-}" ]; then
   RELEASE_URL="${API}/tags/${GM_VERSION}"
@@ -28,7 +40,7 @@ else
 fi
 
 info "Fetching release metadata for ${REPO}…"
-JSON="$(curl -fsSL "$RELEASE_URL")" || err "could not fetch release metadata (is there a published release yet?)"
+JSON="$(api_get "$RELEASE_URL")" || err "could not fetch release metadata (no published release yet, or the API rate limit was hit — set GITHUB_TOKEN to raise it)"
 
 # Pick the first asset whose download URL ENDS WITH the given extension. Anchoring
 # on end-of-line avoids matching electron-builder's ".dmg.blockmap" sidecar files.

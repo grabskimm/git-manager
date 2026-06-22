@@ -34,11 +34,17 @@ function Fail($m) { Write-Host "error: $m" -ForegroundColor Red; exit 1 }
 $api = "https://api.github.com/repos/$Repo/releases"
 $releaseUrl = if ($Version) { "$api/tags/$Version" } else { "$api/latest" }
 
+# Optional token (GITHUB_TOKEN/GH_TOKEN) lifts the unauthenticated API rate limit
+# (60/hr per IP) and allows private repos.
+$headers = @{ "User-Agent" = "gitmanager-installer" }
+$token = if ($env:GITHUB_TOKEN) { $env:GITHUB_TOKEN } else { $env:GH_TOKEN }
+if ($token) { $headers["Authorization"] = "Bearer $token" }
+
 Info "Fetching release metadata for $Repo…"
 try {
-  $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "gitmanager-installer" }
+  $release = Invoke-RestMethod -Uri $releaseUrl -Headers $headers
 } catch {
-  Fail "could not fetch release metadata (is there a published release yet?): $($_.Exception.Message)"
+  Fail "could not fetch release metadata (no published release yet, or the API rate limit was hit — set GITHUB_TOKEN to raise it): $($_.Exception.Message)"
 }
 
 # Prefer the NSIS .exe (assisted/in-place upgrade); fall back to the .msi.
