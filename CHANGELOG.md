@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.1.1](https://github.com/grabskimm/git-manager/compare/v1.1.0...v1.1.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **desktop:** keep engine alive on macOS window close (no black relaunch) ([6b287f5](https://github.com/grabskimm/git-manager/commit/6b287f5fb5922518393f1915a4973e2abb665049))
+
 # [1.1.0](https://github.com/grabskimm/git-manager/compare/v1.0.1...v1.1.0) (2026-06-22)
 
 
