@@ -130,17 +130,21 @@ jobs:
       - name: Build & publish release
         if: startsWith(github.ref, 'refs/tags/v')
         working-directory: packages/desktop
-        run: npx electron-builder ${{ matrix.ebflags }} --publish always
+        # On macOS without an Apple cert, pass `-c.mac.identity=null` to FULLY
+        # disable code signing. Just setting CSC_IDENTITY_AUTO_DISCOVERY=false is
+        # not enough — electron-builder still attempts ad-hoc signing, which fails
+        # with "<dir> not a file" on the unpacked native modules. identity=null
+        # produces a cleanly UNSIGNED build (the documented behavior). When a cert
+        # IS present the flag is omitted and CSC_LINK below is used.
+        run: >-
+          npx electron-builder ${{ matrix.ebflags }}
+          ${{ (startsWith(matrix.name, 'macos') && env.HAS_APPLE_CERT == 'false') && '-c.mac.identity=null' || '' }}
+          --publish always
         env:
           GITMANAGER_BUILD_SHA: ${{ github.sha }}
           # Prefer the PAT (it created the release and can upload assets); fall back
           # to GITHUB_TOKEN, which works given the contents:write permission above.
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # Without an Apple cert, disable signing so electron-builder produces an
-          # UNSIGNED mac build instead of attempting ad-hoc signing (which fails
-          # with "<dir> not a file" on the unpacked native modules). 'true' when a
-          # cert is present so CSC_LINK below is used.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ env.HAS_APPLE_CERT }}
           # macOS code signing + notarization (skipped if unset -> unsigned).
           CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
