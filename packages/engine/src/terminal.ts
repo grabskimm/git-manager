@@ -14,38 +14,64 @@ import { getConfig } from "./config.js";
 
 /**
  * node-pty ships a small `spawn-helper` binary (macOS/Linux). If it loses its
- * executable bit — which can happen when the engine is packed and globally
- * installed — `posix_spawn` fails with the opaque "posix_spawnp failed.".
- * Ensure it's executable once at startup. Best-effort; never throws.
+ * executable bit — or, on macOS, carries a Gatekeeper quarantine xattr after the
+ * app is downloaded — `posix_spawn` fails with the opaque "posix_spawnp failed.".
+ * Ensure it's executable and un-quarantined once at startup. Best-effort; never
+ * throws.
+ *
+ * In a packaged Electron app the node-pty JS resolves *inside* `app.asar`, but
+ * the native helper is unpacked to `app.asar.unpacked` — and that unpacked copy
+ * is the one node-pty actually `exec`s (it applies the same `.asar`→`.asar.unpacked`
+ * remap to its `helperPath`). So we must fix the unpacked file, not the virtual
+ * one inside the archive; check both locations.
  */
 function ensureSpawnHelperExecutable(): void {
   if (process.platform === "win32") return;
   try {
     const require = createRequire(import.meta.url);
     const ptyMain = require.resolve("node-pty");
-    // ptyMain is .../node-pty/lib/index.js → root is two levels up.
+    // ptyMain is .../node-pty/lib/index.js; `..` from its dirname is the package
+    // root (.../node-pty).
     const root = path.resolve(path.dirname(ptyMain), "..");
-    const candidates = [
-      path.join(root, "build", "Release", "spawn-helper"),
-      path.join(root, "build", "Debug", "spawn-helper"),
-      path.join(root, "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper"),
+    const rels = [
+      ["build", "Release", "spawn-helper"],
+      ["build", "Debug", "spawn-helper"],
+      ["prebuilds", `${process.platform}-${process.arch}`, "spawn-helper"],
     ];
+    const candidates = new Set<string>();
+    for (const rel of rels) {
+      const p = path.join(root, ...rel);
+      candidates.add(p);
+      // The path node-pty truly execs after its asar→unpacked remap.
+      candidates.add(
+        p
+          .replace("app.asar", "app.asar.unpacked")
+          .replace("node_modules.asar", "node_modules.asar.unpacked"),
+      );
+    }
     for (const helper of candidates) {
-      if (!existsSync(helper)) continue;
-      const mode = statSync(helper).mode;
-      // Add execute bits for user/group/other if any are missing, without
-      // broadening read/write. This is the common case: npm didn't preserve +x
-      // on the prebuilt spawn-helper.
-      if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o111);
-      // On macOS, also clear any Gatekeeper quarantine that would block exec.
-      if (process.platform === "darwin") {
-        try {
-          execFileSync("xattr", ["-d", "com.apple.quarantine", helper], {
-            stdio: "ignore",
-          });
-        } catch {
-          // no quarantine attribute present — fine.
+      // Per-candidate best-effort: a throw on one path (e.g. chmod on the
+      // read-only in-asar virtual path) must not abort the loop before the real
+      // app.asar.unpacked helper is reached.
+      try {
+        if (!existsSync(helper)) continue;
+        const mode = statSync(helper).mode;
+        // Add execute bits for user/group/other if any are missing, without
+        // broadening read/write. This is the common case: npm/packaging didn't
+        // preserve +x on the spawn-helper.
+        if ((mode & 0o111) !== 0o111) chmodSync(helper, mode | 0o111);
+        // On macOS, also clear any Gatekeeper quarantine that would block exec.
+        if (process.platform === "darwin") {
+          try {
+            execFileSync("xattr", ["-d", "com.apple.quarantine", helper], {
+              stdio: "ignore",
+            });
+          } catch {
+            // no quarantine attribute present — fine.
+          }
         }
+      } catch {
+        // this candidate isn't fixable (read-only/virtual) — try the next.
       }
     }
   } catch {
