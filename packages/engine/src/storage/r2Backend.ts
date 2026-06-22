@@ -13,12 +13,28 @@ interface CmdResult {
 
 const isWin = process.platform === "win32";
 
+/**
+ * A writable working directory for wrangler. wrangler creates a `.wrangler/cache`
+ * relative to its cwd — and a packaged macOS app launches with cwd `/`, so it would
+ * try to create `/.wrangler/cache` and fail ("Missing file or directory:
+ * /.wrangler/cache"). Anchor it to GITMANAGER_HOME (always writable) instead.
+ */
+function wranglerCwd(): string {
+  const dir = process.env.GITMANAGER_HOME ?? path.join(os.homedir(), ".gitmanager");
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // best effort — spawn will surface any real problem
+  }
+  return dir;
+}
+
 /** Raw spawn of one command. On Windows, .cmd shims (npx/wrangler) need a shell. */
 function rawRun(cmd: string, args: string[], input?: Buffer): Promise<CmdResult> {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: isWin });
+      child = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: isWin, cwd: wranglerCwd() });
     } catch (err) {
       resolve({ code: -1, stdout: "", stderr: String(err) });
       return;

@@ -115,7 +115,7 @@ export function AboutSettings() {
               </div>
               <div className="update-banner-actions" style={{ marginTop: 8 }}>
                 <button className="primary" onClick={() => void d.downloadUpdate()}>
-                  {update.manual ? "Download" : "Update now"}
+                  Update now
                 </button>
               </div>
             </div>
@@ -123,10 +123,16 @@ export function AboutSettings() {
 
           {phase === "downloading" && update && (
             <div className="banner info">
-              Downloading v{update.version}… {percent}%
-              <div className="update-progress">
-                <div className="update-progress-bar" style={{ width: `${percent}%` }} />
-              </div>
+              {update.manual ? (
+                "Installing update…"
+              ) : (
+                <>
+                  Downloading v{update.version}… {percent}%
+                  <div className="update-progress">
+                    <div className="update-progress-bar" style={{ width: `${percent}%` }} />
+                  </div>
+                </>
+              )}
             </div>
           )}
 

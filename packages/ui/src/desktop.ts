@@ -12,9 +12,10 @@ export interface DesktopUpdateInfo {
   /** Link to the release notes / changelog entry for this version. */
   notesUrl?: string;
   /**
-   * When true, the platform can't self-install (e.g. an unsigned macOS build):
-   * the UI should offer a manual download from the release page rather than an
-   * in-app "Update now" / "Relaunch".
+   * When true, the platform updates via the install script rather than
+   * electron-updater (e.g. an unsigned macOS build): the flow is still
+   * "Update now" → "Relaunch", but progress is indeterminate ("Installing…")
+   * since the script, not electron-updater, drives the download/install.
    */
   manual?: boolean;
 }

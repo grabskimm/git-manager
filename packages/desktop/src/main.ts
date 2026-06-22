@@ -25,6 +25,7 @@ let splashWindow: BrowserWindow | null = null;
 let engine: ChildProcess | null = null;
 let enginePort = 0;
 let shuttingDown = false;
+let pendingUpdateVersion: string | null = null; // latest version found by a check
 
 const APP_VERSION = app.getVersion();
 const BUILD_SHA = process.env.GITMANAGER_BUILD_SHA ?? null;
@@ -32,15 +33,17 @@ const NOTES_BASE =
   process.env.GITMANAGER_RELEASE_NOTES_BASE ??
   "https://github.com/grabskimm/git-manager/releases/tag";
 const RELEASES_LATEST = "https://github.com/grabskimm/git-manager/releases/latest";
+const INSTALL_SCRIPT_URL =
+  "https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.sh";
 
-// macOS in-app auto-update needs a Developer ID signature: Squirrel.Mac validates
-// the downloaded .app's code signature and refuses an unsigned/ad-hoc build
-// ("code has no resources but signature indicates they must be present"). Until the
-// mac build is signed + notarized, surface updates on macOS as a MANUAL download
-// (open the release page) instead of attempting the in-app install. Windows (NSIS)
-// and Linux (AppImage) auto-update fine unsigned. Flip this to false once signing
-// is wired up (set the APPLE_* secrets) to re-enable in-app updates on macOS.
-const MAC_UPDATE_IS_MANUAL = process.platform === "darwin";
+// macOS in-app auto-update can't use electron-updater: Squirrel.Mac validates the
+// downloaded .app's code signature and refuses an unsigned/ad-hoc build ("code has
+// no resources but signature indicates they must be present"). Instead, run the
+// install script — it downloads the latest .dmg and replaces the app in
+// /Applications, then we relaunch. Windows (NSIS) and Linux (AppImage) auto-update
+// fine unsigned. Flip this to false once the mac build is signed + notarized (set
+// the APPLE_* secrets) to use the normal electron-updater path on macOS.
+const MAC_SCRIPT_UPDATE = process.platform === "darwin";
 
 // ---------------------------------------------------------------------------
 // Single-instance lock: a second launch focuses the existing window instead of
@@ -352,16 +355,24 @@ function registerIpc(): void {
     await autoUpdater.checkForUpdates();
   });
   ipcMain.handle("gm:download-update", async () => {
-    // On macOS (unsigned) the in-app install can't pass Squirrel's signature
-    // check — open the release page for a manual download instead of failing.
-    if (MAC_UPDATE_IS_MANUAL) {
-      openExternalSafely(RELEASES_LATEST);
+    // On macOS (unsigned) the electron-updater install can't pass Squirrel's
+    // signature check — run the install script (downloads the .dmg + replaces the
+    // app in /Applications) instead. It reports done via gm:update-downloaded.
+    if (MAC_SCRIPT_UPDATE) {
+      runMacUpdateScript();
       return;
     }
     await autoUpdater.downloadUpdate();
   });
   ipcMain.handle("gm:install-update", () => {
     shuttingDown = true;
+    // On macOS the script already installed the new app into /Applications — just
+    // relaunch into it. Elsewhere, let electron-updater swap in the download.
+    if (MAC_SCRIPT_UPDATE) {
+      app.relaunch();
+      app.quit();
+      return;
+    }
     autoUpdater.quitAndInstall();
   });
   ipcMain.handle("gm:open-logs", () => {
@@ -369,11 +380,12 @@ function registerIpc(): void {
   });
 
   autoUpdater.on("update-available", (info) => {
+    pendingUpdateVersion = info.version;
     send("gm:update-available", {
       version: info.version,
       notesUrl: `${NOTES_BASE}/v${info.version}`,
-      // macOS can't self-install unsigned — the renderer shows a manual download.
-      manual: MAC_UPDATE_IS_MANUAL,
+      // macOS updates via the install script (indeterminate progress in the UI).
+      manual: MAC_SCRIPT_UPDATE,
     });
   });
   autoUpdater.on("download-progress", (p) => {
@@ -389,6 +401,47 @@ function registerIpc(): void {
   });
   autoUpdater.on("error", (err) => {
     send("gm:update-error", err == null ? "unknown error" : (err.message ?? String(err)));
+  });
+}
+
+/**
+ * macOS update path: run the install script (the same `curl … | sh` users run by
+ * hand). It downloads the latest `.dmg` and replaces /Applications/GitManager.app;
+ * on success the renderer is told the update is "downloaded" so it offers Relaunch
+ * (which re-execs the freshly installed app). Failures surface inline with a
+ * manual-download fallback. Uses the gm:update-* events the UI already handles.
+ */
+function runMacUpdateScript(): void {
+  log.info("running macOS update via install script");
+  send("gm:update-progress", { percent: 0 }); // flip UI to an "installing" state
+  let child;
+  try {
+    child = spawn("/bin/sh", ["-c", `curl -fsSL ${INSTALL_SCRIPT_URL} | sh`], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (err) {
+    send("gm:update-error", `Could not start the updater: ${(err as Error).message}`);
+    return;
+  }
+  let stderr = "";
+  child.stdout?.on("data", (d: Buffer) => log.info(`[update] ${d.toString().trimEnd()}`));
+  child.stderr?.on("data", (d: Buffer) => {
+    stderr += d.toString();
+    log.info(`[update] ${d.toString().trimEnd()}`);
+  });
+  child.on("error", (err) => send("gm:update-error", `Updater failed to run: ${err.message}`));
+  child.on("close", (code) => {
+    if (code === 0) {
+      send("gm:update-downloaded", {
+        version: pendingUpdateVersion ?? APP_VERSION,
+        notesUrl: pendingUpdateVersion ? `${NOTES_BASE}/v${pendingUpdateVersion}` : RELEASES_LATEST,
+      });
+    } else {
+      send(
+        "gm:update-error",
+        `${stderr.trim() || `the updater exited with code ${code}`} — you can download it manually from the releases page.`,
+      );
+    }
   });
 }
 
