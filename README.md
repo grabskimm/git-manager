@@ -1,6 +1,10 @@
-# GitManager
+<p align="center">
+  <img src="packages/desktop/build/logo.png" alt="GitManager" width="128" height="128" />
+</p>
 
-**A GitHub-style home for the git repos that live only on your machine.**
+<h1 align="center">GitManager</h1>
+
+<p align="center"><strong>A GitHub-style home for the git repos that live only on your machine.</strong></p>
 
 GitManager is a local-first web app. Point it at the folders where you keep your projects, and
 it gives you one clean dashboard over every git repo it finds — browse code, open **pull
@@ -84,6 +88,20 @@ Prefer a native window over a browser tab? GitManager also ships as a standalone
 desktop app for **Windows, macOS, and Linux** that runs the same engine + UI
 headlessly and 100% locally — no terminal, no manual server start — with the app
 version in the sidebar and built-in auto-update.
+
+**Download a prebuilt installer** (no build step) from the
+**[Releases page](https://github.com/grabskimm/git-manager/releases/latest)** and run it:
+
+| OS | Download |
+| --- | --- |
+| **Windows** | `.exe` (installer) or `.msi` |
+| **macOS** (Apple Silicon) | `.dmg` |
+| **Linux** | `.AppImage` (portable) or `.deb` |
+
+Once installed, the app **auto-updates** itself — it checks the Releases feed on
+launch and prompts you in-app when a new version is out.
+
+To build the installers yourself instead (or run the app from this checkout):
 
 ```bash
 npm run desktop        # build everything and launch the native app
