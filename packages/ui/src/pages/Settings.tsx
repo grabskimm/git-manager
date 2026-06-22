@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useApp } from "../state";
 import { BackupSettings } from "../components/BackupSettings";
 import { AboutSettings } from "../components/AboutSettings";
+import type { Repo } from "../types";
 
-type Tab = "sources" | "features" | "backup" | "security" | "about";
+type Tab = "sources" | "repos" | "features" | "backup" | "security" | "about";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "sources", label: "Sources" },
+  { id: "repos", label: "Repositories" },
   { id: "features", label: "Features" },
   { id: "backup", label: "Backup & sync" },
   { id: "security", label: "Security" },
@@ -21,6 +23,14 @@ export function Settings() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [allRepos, setAllRepos] = useState<Repo[]>([]);
+  const [reposBusy, setReposBusy] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (tab === "repos") {
+      api.listAllRepos().then(setAllRepos).catch(() => {});
+    }
+  }, [tab]);
 
   const add = async () => {
     if (!path.trim()) return;
@@ -43,6 +53,23 @@ export function Settings() {
   const remove = async (id: string) => {
     await api.removeSourceDir(id);
     await reloadSourceDirs();
+  };
+
+  const toggleHidden = async (repo: Repo) => {
+    setReposBusy((s) => new Set(s).add(repo.id));
+    try {
+      const updated = await api.updateRepo(repo.id, { hidden: !repo.hidden });
+      setAllRepos((rs) => rs.map((r) => (r.id === repo.id ? updated : r)));
+      await reloadRepos();
+    } catch {
+      // non-fatal: leave the list unchanged on network error
+    } finally {
+      setReposBusy((s) => {
+        const next = new Set(s);
+        next.delete(repo.id);
+        return next;
+      });
+    }
   };
 
   return (
@@ -94,6 +121,44 @@ export function Settings() {
                   <span className="spacer" />
                   <button className="danger" onClick={() => remove(d.id)}>
                     Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === "repos" && (
+        <>
+          <h2>Repositories</h2>
+          <p className="subtle">
+            Hide repositories from the sidebar and home page without removing them. Hidden repos
+            remain on disk and can be shown again at any time.
+          </p>
+          {allRepos.length === 0 ? (
+            <div className="empty subtle">No repositories found.</div>
+          ) : (
+            <div className="list">
+              {allRepos.map((r) => (
+                <div
+                  key={r.id}
+                  className="list-row"
+                  style={{ cursor: "default", opacity: r.hidden ? 0.5 : 1 }}
+                >
+                  <div>
+                    <div>{r.display_name}</div>
+                    <div className="faint mono" style={{ fontSize: 11 }}>
+                      {r.abs_path}
+                    </div>
+                  </div>
+                  <span className="spacer" />
+                  <button
+                    disabled={reposBusy.has(r.id)}
+                    onClick={() => toggleHidden(r)}
+                    className={r.hidden ? "primary" : ""}
+                  >
+                    {reposBusy.has(r.id) ? "…" : r.hidden ? "Show" : "Hide"}
                   </button>
                 </div>
               ))}

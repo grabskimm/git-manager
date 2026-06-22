@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS repos (
   abs_path        TEXT NOT NULL,
   default_branch  TEXT,
   added_at        TEXT NOT NULL,
-  last_scanned_at TEXT
+  last_scanned_at TEXT,
+  hidden          INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS prs (
@@ -90,9 +91,13 @@ export function openDb(file: string = dbPath()): DB {
 
 /** Additive migrations for DBs created before a column existed. */
 function migrate(db: DB): void {
-  const cols = db.prepare("PRAGMA table_info(prs)").all() as { name: string }[];
-  if (!cols.some((c) => c.name === "remote_url")) {
+  const prCols = db.prepare("PRAGMA table_info(prs)").all() as { name: string }[];
+  if (!prCols.some((c) => c.name === "remote_url")) {
     db.exec("ALTER TABLE prs ADD COLUMN remote_url TEXT");
+  }
+  const repoCols = db.prepare("PRAGMA table_info(repos)").all() as { name: string }[];
+  if (!repoCols.some((c) => c.name === "hidden")) {
+    db.exec("ALTER TABLE repos ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0");
   }
 }
 
