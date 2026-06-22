@@ -53,7 +53,7 @@ is bundled.
 The fastest way is the published CLI — **[install from npm](#install-from-npm)**:
 
 ```bash
-npm install -g @gitmanager/engine    # the `gitm` / `gitmanager` commands (UI bundled in)
+npm install -g @git-manager/engine    # the `gitm` / `gitmanager` commands (UI bundled in)
 gitm                                 # serves on http://127.0.0.1:4317 and opens your browser
 ```
 
@@ -97,12 +97,12 @@ signing certificates and credentials.
 
 ### Install from npm
 
-The published CLI is **[`@gitmanager/engine`](https://www.npmjs.com/package/@gitmanager/engine)**
+The published CLI is **[`@git-manager/engine`](https://www.npmjs.com/package/@git-manager/engine)**
 — the engine with the UI already bundled in, so a single global install is fully
 self-contained (no build step, no separate UI package):
 
 ```bash
-npm install -g @gitmanager/engine    # installs the `gitm` and `gitmanager` commands
+npm install -g @git-manager/engine    # installs the `gitm` and `gitmanager` commands
 gitm                                 # start the engine + open the UI
 gitm --version                       # check your installed version
 ```
@@ -112,7 +112,7 @@ the UI at `http://127.0.0.1:4317`; the subcommands below drive PRs/backups from 
 shell. You still need **git** (and, for AI reviews, the optional
 [`claude`](https://docs.claude.com/en/docs/claude-code) CLI) on your PATH.
 
-To upgrade later: `npm install -g @gitmanager/engine@latest`. Prefer a native
+To upgrade later: `npm install -g @git-manager/engine@latest`. Prefer a native
 window with auto-update? Grab the [desktop app](#desktop-app) instead.
 
 > Releases are automated: every merge to `main` runs semantic-release, which

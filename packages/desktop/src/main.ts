@@ -89,7 +89,7 @@ function findFreePort(): Promise<number> {
 function resolveEngineEntry(): string {
   try {
     // Works both in dev (workspace symlink) and packaged (node_modules in asar).
-    return require.resolve("@gitmanager/engine/dist/cli.js");
+    return require.resolve("@git-manager/engine/dist/cli.js");
   } catch {
     return path.join(app.getAppPath(), "..", "engine", "dist", "cli.js");
   }

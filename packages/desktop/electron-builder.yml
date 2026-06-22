@@ -14,7 +14,7 @@ directories:
   buildResources: build
 
 # Only ship the compiled shell + production node_modules (which includes the
-# @gitmanager/engine dependency and its native modules). The engine's bundled UI
+# @git-manager/engine dependency and its native modules). The engine's bundled UI
 # is served from inside that package.
 files:
   - dist/**/*
@@ -25,11 +25,11 @@ files:
 # Native modules (better-sqlite3, node-pty) cannot run from inside the asar
 # archive — unpack them, and the engine code we spawn as a child process. Globs
 # are "**/"-prefixed because, in the self-contained install, the engine's native
-# deps may be nested under node_modules/@gitmanager/engine/node_modules.
+# deps may be nested under node_modules/@git-manager/engine/node_modules.
 asar: true
 asarUnpack:
   - "**/*.node"
-  - "**/@gitmanager/engine/**"
+  - "**/@git-manager/engine/**"
   - "**/better-sqlite3/**"
   - "**/node-pty/**"
 

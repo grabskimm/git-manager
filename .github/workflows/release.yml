@@ -4,7 +4,7 @@ name: Release
 # Conventional Commits since the last release (feat -> minor, fix -> patch,
 # feat!/BREAKING CHANGE -> major), computes the next version, updates CHANGELOG.md,
 # creates the `v<version>` git tag, publishes a GitHub Release with notes, and
-# publishes the CLI (@gitmanager/engine) to npm.
+# publishes the CLI (@git-manager/engine) to npm.
 #
 # The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
 # installers and attaches them + the auto-update manifests to that release.
@@ -61,7 +61,7 @@ jobs:
           # Prefer a PAT so the version tag triggers the desktop build; fall back
           # to GITHUB_TOKEN (release created, installers need a manual trigger).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # Publishes @gitmanager/engine to npm. If unset, the npm plugin fails
+          # Publishes @git-manager/engine to npm. If unset, the npm plugin fails
           # the release — leave it unset (and drop @semantic-release/npm from
           # .releaserc.json) if you don't want an npm publish.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

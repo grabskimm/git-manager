@@ -96,7 +96,7 @@ npm run desktop:dist        # -> packages/desktop/release/
 `desktop:dist` (and `desktop:pack` for an unpacked `--dir` build) mirror the CI
 packaging steps: they stage a self-contained copy of the production deps under
 `packages/desktop` (so electron-builder's asar packer doesn't choke on the
-workspace symlink to `@gitmanager/engine`), rebuild better-sqlite3 for Electron,
+workspace symlink to `@git-manager/engine`), rebuild better-sqlite3 for Electron,
 then restore the normal workspace afterward — see `packages/desktop/scripts/dist.mjs`.
 
 Notes:
@@ -139,7 +139,7 @@ So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The
 1. **`.github/workflows/release.yml`** runs semantic-release: it computes the next
    version from the commits, updates `CHANGELOG.md`, creates the **`v<version>` git
    tag**, publishes a **GitHub Release** with generated notes, and **publishes the CLI
-   (`@gitmanager/engine`) to npm** (gated on the `NPM_TOKEN` secret). (No releasable
+   (`@git-manager/engine`) to npm** (gated on the `NPM_TOKEN` secret). (No releasable
    commits → it does nothing.)
 2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
    1. Writes the tag version into every `package.json` (the single source of truth

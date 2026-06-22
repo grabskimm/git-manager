@@ -1,7 +1,7 @@
 // Local packaging wrapper for the desktop app, mirroring the CI packaging steps.
 //
 // electron-builder asar-packing fails on the workspace symlink to
-// @gitmanager/engine ("… must be under packages/desktop/"). CI avoids this by
+// @git-manager/engine ("… must be under packages/desktop/"). CI avoids this by
 // staging a real, self-contained copy of the production deps under
 // packages/desktop before packaging. This script does the same for local
 // `npm run desktop:dist` / `desktop:pack`, then restores the workspace dev tree
@@ -34,7 +34,7 @@ run("npm run build", desktop); // compile main/preload
 
 let failed = false;
 try {
-  // Replace the workspace symlink to @gitmanager/engine with a real, self-contained
+  // Replace the workspace symlink to @git-manager/engine with a real, self-contained
   // copy so asar can pack it, and rebuild better-sqlite3 for the Electron ABI
   // (node-pty is N-API and ABI-stable, so it's left alone). Mirrors CI.
   run("npm install --omit=dev --install-links --no-save --workspaces=false", desktop);

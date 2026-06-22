@@ -1,5 +1,5 @@
 {
-  "name": "@gitmanager/engine",
+  "name": "@git-manager/engine",
   "version": "1.0.0",
   "license": "MIT",
   "description": "GitManager CLI + engine: a local-first, GitHub-like UI over your local git repos, with local PRs and automatic AI review. Provides the `gitm` / `gitmanager` commands.",
