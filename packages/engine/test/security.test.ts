@@ -113,6 +113,25 @@ describe("security floor (§7)", () => {
   });
 });
 
+describe("/healthz readiness probe", () => {
+  it("returns 200 with no token and no Origin (unauthenticated by design)", async () => {
+    const res = await fetch(`${ORIGIN}/healthz`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean };
+    expect(body.ok).toBe(true);
+  });
+
+  it("is uncacheable (Cache-Control: no-store)", async () => {
+    const res = await fetch(`${ORIGIN}/healthz`);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("is still Host-pinned — rejects a spoofed Host", async () => {
+    const res = await rawRequest("/healthz", { Host: `evil.example.com:${PORT}` });
+    expect(res.status).toBe(403);
+  });
+});
+
 describe("Host pinning (anti DNS-rebinding)", () => {
   it("rejects a spoofed Host on the token-bearing index (no token leak)", async () => {
     const res = await rawRequest("/", { Host: `evil.example.com:${PORT}` });

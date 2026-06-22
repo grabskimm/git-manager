@@ -48,15 +48,24 @@ export function AboutSettings() {
 
   const check = async () => {
     if (!d) return;
-    setPhase("checking");
+    setUpdate(null); // drop any stale "available" result from a prior check
     setNote(null);
+    setPhase("checking");
     try {
       await d.checkForUpdates();
-      // If no "available" event arrives, we're current.
-      setPhase((p) => (p === "checking" ? "idle" : p));
-      setNote("You're on the latest version.");
-    } catch {
+      // An update-available/error event may have already flipped the phase. Only
+      // declare "latest" if we're still "checking" — and set the note inside the
+      // same guard so it can't contradict a banner that arrived first.
+      setPhase((p) => {
+        if (p === "checking") {
+          setNote("You're on the latest version.");
+          return "idle";
+        }
+        return p;
+      });
+    } catch (e) {
       setPhase("error");
+      setNote(e instanceof Error ? e.message : "Update check failed.");
     }
   };
 

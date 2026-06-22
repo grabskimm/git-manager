@@ -233,15 +233,28 @@ function openExternalSafely(url: string): void {
   }
 }
 
+/** Best-effort path to the logs directory, for the fatal screen. */
+function logsDir(): string {
+  try {
+    return path.dirname(log.transports.file.getFile().path);
+  } catch {
+    return app.getPath("logs");
+  }
+}
+
 function showFatal(message: string): void {
   const win = mainWindow ?? splashWindow;
+  // The renderer UI never loaded in this path, so the in-app "Open logs folder"
+  // button is unreachable and there's no application menu — print the path itself.
   const html = `<!doctype html><html><head><meta charset="utf-8">
 <style>html,body{margin:0;height:100%;background:#0d1117;color:#c9d1d9;
   font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;
   flex-direction:column;gap:12px;padding:24px;text-align:center}
-  h1{color:#f85149;font-size:18px;margin:0}p{color:#8b949e;max-width:34rem}</style>
+  h1{color:#f85149;font-size:18px;margin:0}p{color:#8b949e;max-width:34rem}
+  code{color:#c9d1d9;background:#161b22;border:1px solid #30363d;border-radius:6px;
+    padding:2px 6px;font-size:12px;word-break:break-all}</style>
 </head><body><h1>GitManager could not start</h1><p>${escapeHtml(message)}</p>
-<p>See the logs for details (Help &rarr; Open logs folder).</p></body></html>`;
+<p>See the logs for details:<br><code>${escapeHtml(logsDir())}</code></p></body></html>`;
   if (win && !win.isDestroyed()) {
     void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
     win.show();
@@ -321,8 +334,16 @@ function registerIpc(): void {
   ipcMain.on("gm:meta", (e) => {
     e.returnValue = { version: APP_VERSION, build: BUILD_SHA, platform: process.platform };
   });
-  ipcMain.handle("gm:check-for-updates", () => autoUpdater.checkForUpdates().catch(noop));
-  ipcMain.handle("gm:download-update", () => autoUpdater.downloadUpdate().catch(noop));
+  // Let these reject so the renderer's invoke() can observe failures in its
+  // try/catch. We deliberately resolve with void (the autoUpdater results carry
+  // non-cloneable fields like cancellation tokens). Errors still ALSO surface via
+  // the 'error' event below, independently.
+  ipcMain.handle("gm:check-for-updates", async () => {
+    await autoUpdater.checkForUpdates();
+  });
+  ipcMain.handle("gm:download-update", async () => {
+    await autoUpdater.downloadUpdate();
+  });
   ipcMain.handle("gm:install-update", () => {
     shuttingDown = true;
     autoUpdater.quitAndInstall();
@@ -402,7 +423,3 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
 app.on("activate", () => {
   if (mainWindow === null && enginePort) createMainWindow();
 });
-
-function noop(): void {
-  /* swallow — errors surface via the autoUpdater 'error' event */
-}

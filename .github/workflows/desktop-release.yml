@@ -4,7 +4,7 @@ name: Desktop Release
 #  - Tag push (v*)            -> release build: sign (if secrets present), build
 #                               all targets, publish a GitHub Release + the
 #                               electron-updater manifests (latest*.yml).
-#  - pull_request / push main -> validation build only: compile + package, no
+#  - pull_request            -> validation build only: compile + package, no
 #                               signing, no publish — so breakage is caught early.
 
 on:
