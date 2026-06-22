@@ -1,8 +1,10 @@
 import { execSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { startEngine } from "./server.js";
 import { loadOrCreateToken } from "./token.js";
+import { logPath, pidPath } from "./paths.js";
 import { setVerbose } from "./logger.js";
 
 interface Pr {
@@ -438,7 +440,7 @@ async function cmdScan(): Promise<void> {
 }
 
 function openBrowser(url: string): void {
-  if (process.env.GITMANAGER_NO_OPEN || process.argv.includes("--no-open")) return;
+  if (process.env.GITMANAGER_NO_OPEN) return;
   const platform = process.platform;
   const cmd = platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
   const args = platform === "win32" ? ["/c", "start", "", url] : [url];
@@ -448,6 +450,128 @@ function openBrowser(url: string): void {
     child.unref();
   } catch {
     // headless / no browser — fine, the URL is printed.
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Is an engine already answering on our loopback port? (auth'd ping) */
+async function isEngineRunning(): Promise<boolean> {
+  try {
+    const res = await fetch(`${origin()}/api/ping`, {
+      headers: { Authorization: `Bearer ${loadOrCreateToken()}`, Origin: origin() },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start the engine detached so the terminal stays free. Re-execs this same CLI
+ * as `start --foreground` with stdio piped to the log file, records the pid, and
+ * waits until the engine answers before reporting. Idempotent: if one is already
+ * running we don't spawn a second (which would EADDRINUSE).
+ */
+async function startBackground(opts: { open: boolean }): Promise<void> {
+  if (await isEngineRunning()) {
+    process.stdout.write(`GitManager engine already running — ${origin()}\n`);
+    if (opts.open) {
+      process.stdout.write(`Opening ${origin()}\n`);
+      openBrowser(origin());
+    }
+    return;
+  }
+
+  const script = fileURLToPath(import.meta.url);
+  const out = fs.openSync(logPath(), "a");
+  let child;
+  try {
+    child = spawn(process.execPath, [script, "start", "--foreground"], {
+      detached: true,
+      stdio: ["ignore", out, out],
+      env: process.env,
+    });
+  } finally {
+    fs.closeSync(out);
+  }
+  child.unref();
+  if (child.pid) fs.writeFileSync(pidPath(), String(child.pid));
+
+  // Wait (up to ~10s) for the engine to accept requests before reporting.
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    if (await isEngineRunning()) {
+      process.stdout.write(
+        [
+          "",
+          "  GitManager engine running in the background (loopback only)",
+          `  ➜  ${origin()}`,
+          `  logs:  ${logPath()}`,
+          "  stop:  gitm stop",
+          "",
+        ].join("\n") + "\n",
+      );
+      if (opts.open) {
+        process.stdout.write(`  opening ${origin()}\n`);
+        openBrowser(origin());
+      }
+      return;
+    }
+    await delay(250);
+  }
+  process.stderr.write(
+    `The engine did not come up within 10s. Check the log:\n  ${logPath()}\n`,
+  );
+  process.exitCode = 1;
+}
+
+/** Open the UI, starting the engine in the background first if it isn't up. */
+async function cmdOpen(): Promise<void> {
+  if (await isEngineRunning()) {
+    process.stdout.write(`Opening ${origin()}\n`);
+    openBrowser(origin());
+    return;
+  }
+  await startBackground({ open: true });
+}
+
+/** Stop the background engine via its pid file. */
+async function cmdStop(): Promise<void> {
+  let pid = 0;
+  try {
+    pid = Number(fs.readFileSync(pidPath(), "utf8").trim()) || 0;
+  } catch {
+    // no pid file
+  }
+  if (!pid) {
+    if (await isEngineRunning()) {
+      process.stdout.write(
+        `An engine is running at ${origin()} but there's no pid file ` +
+          `(likely started with \`gitm start --foreground\`). Stop it where it runs.\n`,
+      );
+      return;
+    }
+    process.stdout.write("No background engine is running.\n");
+    return;
+  }
+  try {
+    process.kill(pid, "SIGTERM");
+    process.stdout.write(`Stopped GitManager engine (pid ${pid}).\n`);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ESRCH") {
+      process.stdout.write(`Engine (pid ${pid}) wasn't running; cleared stale pid file.\n`);
+    } else {
+      throw e;
+    }
+  } finally {
+    try {
+      fs.rmSync(pidPath());
+    } catch {
+      // already gone
+    }
   }
 }
 
@@ -466,7 +590,10 @@ function help(): void {
       "gitm — local-first git UI with local PRs and AI review",
       "",
       "Usage:",
-      "  gitm [start]                         Start the engine and open the UI (default)",
+      "  gitm [start]                         Start the engine in the background (frees the terminal)",
+      "  gitm start --foreground (-f)         Start the engine in the foreground (Ctrl-C to stop)",
+      "  gitm open                            Open the UI (starts the engine in the background if needed)",
+      "  gitm stop                            Stop the background engine",
       "  gitm source add <path|url>           Add a source directory (or clone a URL)",
       "  gitm source list                     List source directories",
       "  gitm source remove <id>              Remove a source directory",
@@ -486,12 +613,13 @@ function help(): void {
       "  gitm hook-event                      Internal: nudge agent refresh (used by hooks)",
       "",
       "Options:",
-      "  --no-open                            Do not open a browser (with start)",
+      "  --foreground, -f                     Run the engine in the foreground (with start)",
       "  --verbose                            Enable verbose logging to stderr",
       "",
       "Env:",
       "  GITMANAGER_PORT   Engine port (default 4317)",
       "  GITMANAGER_HOME   State dir (default ~/.gitmanager)",
+      "  GITMANAGER_NO_OPEN  Never open a browser (overrides `gitm open`)",
       "",
       "Subcommands talk to a running engine over loopback using the local token.",
       "",
@@ -519,15 +647,21 @@ async function startServer(): Promise<void> {
   process.stdout.write(
     [
       "",
-      "  GitManager engine running (loopback only)",
+      "  GitManager engine running in the foreground (loopback only)",
       `  ➜  ${engine.url}`,
       "  Token stored at ~/.gitmanager/token (injected into the served UI)",
+      "  Open the UI with `gitm open`; Ctrl-C to stop.",
       "",
     ].join("\n") + "\n",
   );
-  openBrowser(engine.url);
   const shutdown = async (): Promise<void> => {
     await engine.close();
+    // Remove the pid file if it points at us (set when launched in background).
+    try {
+      if (fs.readFileSync(pidPath(), "utf8").trim() === String(process.pid)) fs.rmSync(pidPath());
+    } catch {
+      // no pid file / already gone
+    }
     process.exit(0);
   };
   process.on("SIGINT", shutdown);
@@ -535,8 +669,10 @@ async function startServer(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  let foreground = false;
   const allArgs = process.argv.slice(2).filter((a) => {
     if (a === "--verbose") { setVerbose(true); return false; }
+    if (a === "--foreground" || a === "-f") { foreground = true; return false; }
     return true;
   });
   const [cmd, ...rest] = allArgs;
@@ -544,7 +680,11 @@ async function main(): Promise<void> {
   switch (cmd) {
     case undefined:
     case "start":
-      return startServer();
+      return foreground ? startServer() : startBackground({ open: false });
+    case "open":
+      return cmdOpen();
+    case "stop":
+      return cmdStop();
     case "hook-event":
       await hookEvent();
       return;
