@@ -16,14 +16,16 @@ name: Release
 # notes be the single source of truth — no bypass needed — but this repo keeps an
 # in-repo CHANGELOG.md by choice.)
 #
-# The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
-# installers and attaches them + the auto-update manifests to that release.
+# Publishing the GitHub Release then drives .github/workflows/desktop-release.yml
+# (on `release: published`), which builds the installers and attaches them + the
+# auto-update manifests to that release.
 #
-# IMPORTANT: for the tag push to trigger the desktop build, semantic-release must
-# push with a Personal Access Token (secret RELEASE_TOKEN) — tags pushed with the
-# default GITHUB_TOKEN do NOT trigger other workflows. Without RELEASE_TOKEN the
-# release is still created, but you must run desktop-release manually (or re-push
-# the tag) to attach installers.
+# IMPORTANT: that hand-off requires the RELEASE_TOKEN PAT. semantic-release publishes
+# the Release with it, and a Release published by a PAT fires the `release` event
+# (a Release published by the default GITHUB_TOKEN would NOT trigger other workflows).
+# We trigger on `release: published` rather than the tag push because the tag points
+# at the "[skip ci]" @semantic-release/git changelog commit, whose tag push GitHub
+# suppresses. Without RELEASE_TOKEN, run desktop-release manually (workflow_dispatch).
 #
 # npm publishing is TEMPORARILY DISABLED (pending a valid NPM_TOKEN + the
 # @git-manager npm org). To re-enable: add @semantic-release/npm back to

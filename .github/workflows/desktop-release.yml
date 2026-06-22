@@ -1,21 +1,37 @@
 name: Desktop Release
 
 # Builds the GitManager desktop app (Electron) for Windows, macOS and Linux.
-#  - Tag push (v*)            -> release build: sign (if secrets present), build
-#                               all targets, publish a GitHub Release + the
-#                               electron-updater manifests (latest*.yml).
-#  - pull_request            -> validation build only: compile + package, no
-#                               signing, no publish — so breakage is caught early.
+#  - release: published  -> release build: sign (if secrets present), build all
+#                           targets, publish the installers + electron-updater
+#                           manifests (latest*.yml) to that GitHub Release. This is
+#                           the PRIMARY trigger: semantic-release publishes the
+#                           Release via the RELEASE_TOKEN PAT, which fires this event
+#                           — and unlike a tag push it is NOT suppressed by the
+#                           "[skip ci]" on the @semantic-release/git changelog commit
+#                           that the tag points at.
+#  - workflow_dispatch   -> manually (re)build + publish a given tag's installers.
+#  - push tag (v*)       -> covers hand-pushed tags (a semantic-release tag points at
+#                           a [skip ci] commit, so its push is suppressed — hence the
+#                           release event above).
+#  - pull_request        -> validation build only: compile + package, no signing,
+#                           no publish — so breakage is caught early.
 
 on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build & publish installers for (e.g. v1.0.0)"
+        required: true
   push:
     tags:
-      - "v*" # release build (versioned + tagged by release.yml / semantic-release)
+      - "v*"
   pull_request: # validation build only
 
-# Cancel superseded runs for the same ref.
+# Cancel superseded runs for the same target.
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: desktop-release-${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
   cancel-in-progress: true
 
 # Needed so electron-builder can upload the installers + update manifests to the
@@ -50,9 +66,16 @@ jobs:
     env:
       HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
       HAS_WIN_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+      # A "release build" is anything that isn't a PR validation build.
+      IS_RELEASE: ${{ github.event_name != 'pull_request' }}
+      # The tag/version this run targets, across release / dispatch / tag-push.
+      REL_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Build the released tag (release event / dispatch input); default ref for PRs.
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -91,12 +114,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # Tag is the single source of truth for the installer + sidebar version.
+      # The tag is the single source of truth for the installer + sidebar version.
       - name: Set version from tag
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.IS_RELEASE == 'true'
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${REL_TAG#v}"
           echo "Releasing version $VERSION"
           node -e "for (const p of ['package.json','packages/engine/package.json','packages/ui/package.json','packages/desktop/package.json']) { const fs=require('fs'); const j=JSON.parse(fs.readFileSync(p)); j.version='${VERSION}'; fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n'); }"
 
@@ -126,9 +149,9 @@ jobs:
         working-directory: packages/desktop
         run: npx --no-install electron-rebuild -v 33.2.0 -a ${{ matrix.arch }} -o better-sqlite3 -m .
 
-      # ---- Release build (tag): sign if secrets present, then publish --------
+      # ---- Release build: sign if secrets present, then publish --------------
       - name: Build & publish release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: env.IS_RELEASE == 'true'
         working-directory: packages/desktop
         # On macOS without an Apple cert, pass `-c.mac.identity=null` to FULLY
         # disable code signing. Just setting CSC_IDENTITY_AUTO_DISCOVERY=false is
@@ -157,16 +180,16 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
 
       - name: Warn on unsigned macOS build
-        if: startsWith(github.ref, 'refs/tags/v') && startsWith(matrix.name, 'macos') && env.HAS_APPLE_CERT == 'false'
+        if: env.IS_RELEASE == 'true' && startsWith(matrix.name, 'macos') && env.HAS_APPLE_CERT == 'false'
         run: echo "::warning::APPLE_CERTIFICATE not set — producing an UNSIGNED, un-notarized macOS build."
 
       - name: Warn on unsigned Windows build
-        if: startsWith(github.ref, 'refs/tags/v') && matrix.name == 'windows' && env.HAS_WIN_CERT == 'false'
+        if: env.IS_RELEASE == 'true' && matrix.name == 'windows' && env.HAS_WIN_CERT == 'false'
         run: echo "::warning::WINDOWS_CERTIFICATE not set — producing an UNSIGNED Windows build."
 
-      # ---- Validation build (PR / main): package only, never publish ---------
+      # ---- Validation build (PR): package only, never publish ----------------
       - name: Build (validation only)
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: github.event_name == 'pull_request'
         working-directory: packages/desktop
         run: npx electron-builder ${{ matrix.ebflags }} --publish never
         env:
@@ -175,7 +198,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload validation artifacts
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: gitmanager-${{ matrix.name }}
