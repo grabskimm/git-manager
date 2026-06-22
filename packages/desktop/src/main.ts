@@ -1,8 +1,9 @@
 import { app, BrowserWindow, ipcMain, shell } from "electron";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
@@ -109,6 +110,106 @@ function resolveEngineEntry(): string {
 }
 
 /**
+ * The user's real login-shell `PATH`, resolved once.
+ *
+ * A GUI-launched app on macOS/Linux (Finder, the dock, a .desktop launcher)
+ * inherits the OS's minimal `PATH` — launchd gives `/usr/bin:/bin:/usr/sbin:/sbin`
+ * — NOT the `PATH` from the user's interactive shell. So the engine can't find
+ * tools installed by Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), nvm/volta/fnm,
+ * pipx, or `~/.local/bin`. That breaks every external CLI the engine shells out to:
+ * `claude` (chat + PR review), `npx`/`wrangler` (R2 backup), and `az` (Azure
+ * backup, via `@azure/identity`'s `AzureCliCredential`) all fail "not found".
+ *
+ * Fix it at the source: run the user's interactive login shell, read back its
+ * `PATH`, and union it with the inherited `PATH` plus the common install dirs.
+ * No-op on Windows (GUI processes there inherit the user `PATH` already) and in
+ * dev (the app was launched from a shell that already has the right `PATH`).
+ */
+/**
+ * Pick a shell to probe for the user's PATH. Prefer `$SHELL` (the user's actual
+ * login shell). If it's unset, fall back to a shell that sources the user's rc
+ * files AND supports the `-l` (login) flag — `/bin/sh` is often `dash`, which
+ * doesn't, so probing it with `-l` just fails. zsh (macOS default) / bash (Linux
+ * default) are the safe defaults; `/bin/sh` is the last resort.
+ */
+function pickProbeShell(): string {
+  if (process.env.SHELL) return process.env.SHELL;
+  for (const cand of ["/bin/zsh", "/bin/bash"]) {
+    try {
+      if (fs.existsSync(cand)) return cand;
+    } catch {
+      // ignore and try the next candidate
+    }
+  }
+  return "/bin/sh";
+}
+
+let cachedUserPath: string | null = null;
+function resolveUserPath(): string {
+  if (cachedUserPath !== null) return cachedUserPath;
+  const inherited = process.env.PATH ?? "";
+  if (process.platform === "win32" || isDev) {
+    cachedUserPath = inherited;
+    return inherited;
+  }
+
+  let fromShell = "";
+  try {
+    // Run an interactive login shell so it sources the user's profile/rc files,
+    // then print just PATH between sentinels we can isolate from any login noise
+    // (banners, `motd`, etc. that some shells emit on startup).
+    const shellBin = pickProbeShell();
+    const base = path.basename(shellBin);
+    const isFish = base === "fish";
+    // Only bash/zsh/fish meaningfully support `-l -i`; plain sh/dash would error
+    // on `-l`, so probe those with just `-c` (no rc sourcing, but no failure).
+    const loginCapable = isFish || base === "bash" || base === "zsh";
+    const marker = "__GM_PATH__";
+    // In fish, $PATH is a list that stringifies space-separated — force a
+    // colon-delimited value with `string join`. POSIX shells expand it directly.
+    const expr = isFish ? `(string join : $PATH)` : `"$PATH"`;
+    const inner = `printf '%s%s%s' '${marker}' ${expr} '${marker}'`;
+    const flags = loginCapable ? ["-l", "-i", "-c", inner] : ["-c", inner];
+    const out = execFileSync(shellBin, flags, {
+      encoding: "utf8",
+      timeout: 5_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const m = out.match(/__GM_PATH__([\s\S]*?)__GM_PATH__/);
+    if (m && m[1].trim()) fromShell = m[1].trim();
+  } catch (err) {
+    log.warn(`could not resolve login-shell PATH; falling back to defaults: ${(err as Error).message}`);
+  }
+
+  // Common locations CLIs land in, as a backstop if the shell probe missed them.
+  const home = os.homedir();
+  const fallbacks = [
+    "/opt/homebrew/bin", // Apple Silicon Homebrew
+    "/opt/homebrew/sbin",
+    "/usr/local/bin", // Intel Homebrew / common installs
+    "/usr/local/sbin",
+    path.join(home, ".local", "bin"), // pipx, AppImage installs
+    path.join(home, ".npm-global", "bin"),
+    path.join(home, "bin"),
+  ];
+
+  // Dedupe, preserving order: shell PATH first (most authoritative), then the
+  // inherited minimal PATH, then the fallbacks.
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const part of [...fromShell.split(path.delimiter), ...inherited.split(path.delimiter), ...fallbacks]) {
+    const p = part.trim();
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      merged.push(p);
+    }
+  }
+  cachedUserPath = merged.join(path.delimiter);
+  log.info(`resolved engine PATH (${merged.length} entries)`);
+  return cachedUserPath;
+}
+
+/**
  * Spawn the GitManager engine on its own Node runtime (Electron's, via
  * ELECTRON_RUN_AS_NODE so native modules built for the Electron ABI load). Bound
  * to loopback on a dynamically chosen free port — never hardcoded — to avoid
@@ -122,6 +223,9 @@ async function startEngine(): Promise<void> {
   engine = spawn(process.execPath, [entry, "start"], {
     env: {
       ...process.env,
+      // A GUI launch inherits a minimal PATH; restore the user's login-shell PATH
+      // so the engine can find `claude`, `npx`/`wrangler`, and `az` (see above).
+      PATH: resolveUserPath(),
       ELECTRON_RUN_AS_NODE: "1",
       GITMANAGER_PORT: String(enginePort),
       GITMANAGER_NO_OPEN: "1", // the desktop shell owns the window; no browser

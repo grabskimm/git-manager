@@ -51,7 +51,9 @@ On launch, the Electron main process (`packages/desktop/src/main.ts`):
    never hardcoded, so it never collides with a dev server (`:4317`) or a second app.
 3. **Spawns the engine** as a child process on Electron's Node runtime, bound to
    `127.0.0.1` only, with `GITMANAGER_VERSION` (from the app manifest) and the build
-   SHA injected.
+   SHA injected. It also injects the **user's login-shell `PATH`** (see
+   [PATH resolution](#path-resolution-finding-claude-az-wrangler)) so the engine can
+   find the external CLIs it shells out to.
 4. **Waits for readiness** by polling the engine's unauthenticated `/healthz`
    endpoint, showing a splash window until it's up (and a visible error if it isn't).
 5. **Loads the webview** at `http://127.0.0.1:<port>/`. The engine injects the
@@ -71,6 +73,26 @@ via `electron-log`:
 - Linux: `~/.config/GitManager/logs`
 
 Use **Help → Open logs folder** (the `openLogsFolder` bridge call) to reveal them.
+
+### PATH resolution (finding `claude`, `az`, `wrangler`)
+
+The engine shells out to external CLIs — `claude` (chat + PR review), `npx`/`wrangler`
+(Cloudflare R2 backup), and `az` (Azure backup, via `@azure/identity`'s
+`AzureCliCredential`). On macOS and Linux a **GUI launch** (Finder, the dock, a
+`.desktop` launcher) inherits the OS's minimal `PATH` — launchd gives just
+`/usr/bin:/bin:/usr/sbin:/sbin` — **not** the `PATH` from your interactive shell. So
+anything installed by Homebrew (`/opt/homebrew/bin`, `/usr/local/bin`), nvm/volta/fnm,
+pipx, or in `~/.local/bin` is invisible, and those features fail with "not found"
+(e.g. `wrangler not found`, or the Azure credential chain ending in *"Azure CLI could
+not be found"*).
+
+To fix this, `main.ts` resolves the real `PATH` once at startup (`resolveUserPath()`):
+it runs your **interactive login shell** (`$SHELL -ilc`, so it sources your profile/rc
+files), reads back `PATH`, and unions it with the inherited `PATH` and the common
+install dirs as a backstop. The result is injected into the engine child process's
+environment. This is a **no-op on Windows** (GUI processes there already inherit the
+user `PATH`) and **in dev** (the app was launched from a shell). If you install a CLI
+into a brand-new location, restart the app so it re-probes.
 
 **Version display** — the sidebar footer shows `v{semver}`, with
 `vX.Y.Z (build {short-sha})` on hover. It is sourced from a single place: the app
