@@ -184,57 +184,79 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 .btn--ghost:hover { border-color: var(--accent); }
 
 /* ------------------------------ preview ------------------------------ */
-.preview {
-  max-width: 880px;
+/* Two hero visuals stacked: small terminal above the large screenshot.
+   (flex column → switch to `row` for a side-by-side layout.) */
+.hero__media {
   margin: clamp(40px, 6vw, 64px) auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+.preview {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg-elev);
   box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.6);
 }
-.preview__chrome {
+/* Real screenshot fills the framed window (it carries its own chrome). */
+.shot { display: block; width: 100%; height: auto; }
+
+/* --------------------- terminal (secondary visual) ------------------- */
+.terminal {
+  width: 100%;
+  max-width: 660px;
+  margin: 0 auto;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elev);
+  box-shadow: 0 14px 36px -28px rgba(0, 0, 0, 0.55);
+}
+.terminal__bar {
   display: flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.7rem 0.9rem;
+  padding: 0.55rem 0.8rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
 }
-.preview__chrome .dot {
+.terminal__bar .dot {
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--border-strong);
 }
-.preview__title {
-  margin-left: 0.6rem;
+.terminal__bar .title {
+  margin-left: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: var(--muted);
 }
-.preview__term {
+.terminal__body {
   margin: 0;
-  padding: 22px 24px 26px;
+  padding: 18px 20px 20px;
   font-family: var(--font-mono);
-  font-size: clamp(0.72rem, 1.7vw, 0.92rem);
-  line-height: 2;
+  font-size: clamp(0.74rem, 1.6vw, 0.9rem);
+  line-height: 1.95;
   color: var(--text);
   overflow-x: auto;
   background:
     radial-gradient(130% 130% at 0% 0%, var(--accent-soft), transparent 55%),
     var(--bg-elev);
 }
-.preview__term code { font-family: inherit; font-size: inherit; }
-.preview__term .p { color: var(--accent-2); font-weight: 700; }
-.preview__term .c { color: var(--muted); }
-.preview__term .cur {
+.terminal__body code { font-family: inherit; font-size: inherit; }
+.terminal__body .pr { color: var(--accent-2); font-weight: 700; }
+.terminal__body .c { color: var(--muted); }
+.terminal__body .cur {
   display: inline-block;
   color: var(--accent-2);
   animation: blink 1.1s steps(2, start) infinite;
 }
 @keyframes blink { 50% { opacity: 0; } }
-
-/* Real screenshot, once dropped in (see TODO in index.html). */
-.shot { display: block; width: 100%; height: auto; }
 
 /* --------------------------- section heads --------------------------- */
 .kicker {
@@ -411,5 +433,5 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   html { scroll-behavior: auto; }
   .js .reveal { opacity: 1; transform: none; transition: none; }
   .btn:hover, .card:hover { transform: none; }
-  .preview__term .cur { animation: none; }
+  .terminal__body .cur { animation: none; }
 }

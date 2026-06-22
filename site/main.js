@@ -4,6 +4,11 @@
 (function () {
   'use strict';
 
+  // The reveal-on-scroll effect hides `.reveal` elements via the `js` class.
+  // Add it here (not in the inline <head> script) so that if this file ever
+  // fails to load, nothing stays hidden — content degrades to fully visible.
+  document.documentElement.classList.add('js');
+
   /* ---- Theme toggle (persisted; initial theme set inline in <head>) ---- */
   var toggle = document.getElementById('theme-toggle');
   if (toggle) {
