@@ -5,10 +5,16 @@ name: Release
 # feat!/BREAKING CHANGE -> major), computes the next version, creates the
 # `v<version>` git tag, and publishes a GitHub Release with generated notes.
 #
-# `main` is protected (changes must go through a PR), so semantic-release does NOT
-# commit anything back to the branch — no @semantic-release/git / CHANGELOG.md
-# commit (that push is rejected by the branch ruleset). The release notes live on
-# the GitHub Release. Only the tag + Release are created.
+# `main` is protected (changes go through a PR), but semantic-release commits the
+# updated CHANGELOG.md back to main via @semantic-release/git. For that direct push
+# to be accepted, the RELEASE_TOKEN identity must be on the branch ruleset's BYPASS
+# list (Repo → Settings → Rules → the main ruleset → Bypass list). Without that
+# bypass the push is rejected (GH013) and the whole release aborts. The commit uses
+# "[skip ci]" so it doesn't re-trigger this workflow.
+#
+# (Best practice would be to drop the in-repo changelog and let the GitHub Release
+# notes be the single source of truth — no bypass needed — but this repo keeps an
+# in-repo CHANGELOG.md by choice.)
 #
 # The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
 # installers and attaches them + the auto-update manifests to that release.
@@ -57,5 +63,11 @@ jobs:
           # to GITHUB_TOKEN (release created, installers need a manual trigger).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         # commit-analyzer, release-notes-generator and github ship with
-        # semantic-release, so no extra -p flags are needed.
-        run: npx --yes -p semantic-release@24 semantic-release
+        # semantic-release; changelog + git are extra plugins (they maintain and
+        # commit CHANGELOG.md back to main — see the bypass note above).
+        run: >-
+          npx --yes
+          -p semantic-release@24
+          -p @semantic-release/changelog@6
+          -p @semantic-release/git@10
+          semantic-release
