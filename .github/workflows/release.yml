@@ -2,8 +2,13 @@ name: Release
 
 # Versioning is driven by semantic-release on every push to main. It reads the
 # Conventional Commits since the last release (feat -> minor, fix -> patch,
-# feat!/BREAKING CHANGE -> major), computes the next version, updates CHANGELOG.md,
-# creates the `v<version>` git tag, and publishes a GitHub Release with notes.
+# feat!/BREAKING CHANGE -> major), computes the next version, creates the
+# `v<version>` git tag, and publishes a GitHub Release with generated notes.
+#
+# `main` is protected (changes must go through a PR), so semantic-release does NOT
+# commit anything back to the branch — no @semantic-release/git / CHANGELOG.md
+# commit (that push is rejected by the branch ruleset). The release notes live on
+# the GitHub Release. Only the tag + Release are created.
 #
 # The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
 # installers and attaches them + the auto-update manifests to that release.
@@ -14,10 +19,10 @@ name: Release
 # release is still created, but you must run desktop-release manually (or re-push
 # the tag) to attach installers.
 #
-# npm publishing is TEMPORARILY DISABLED. The @git-manager/engine package is not
-# published to npm yet (pending a valid NPM_TOKEN + the @git-manager npm org). To
-# re-enable, restore the steps/plugin marked "npm publish (disabled)" below and add
-# the @semantic-release/npm plugin back to .releaserc.json.
+# npm publishing is TEMPORARILY DISABLED (pending a valid NPM_TOKEN + the
+# @git-manager npm org). To re-enable: add @semantic-release/npm back to
+# .releaserc.json, pass `-p @semantic-release/npm@12`, set NPM_TOKEN, and restore
+# the install/build steps (the package must be built before publish).
 
 on:
   push:
@@ -29,7 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write # create tags/releases, commit the changelog
+  contents: write # create tags + releases
   issues: write # semantic-release comments on released issues
   pull-requests: write # …and PRs
 
@@ -45,26 +50,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          # npm publish (disabled): add registry-url: "https://registry.npmjs.org"
-
-      # npm publish (disabled): the build below is only needed when the
-      # @semantic-release/npm plugin publishes the CLI. Re-enable together.
-      # - name: Install dependencies
-      #   run: npm install
-      # - name: Build engine + UI
-      #   run: npm run build
 
       - name: Semantic release
         env:
           # Prefer a PAT so the version tag triggers the desktop build; fall back
           # to GITHUB_TOKEN (release created, installers need a manual trigger).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # npm publish (disabled): re-add NPM_TOKEN when publishing to npm.
-          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: >-
-          npx --yes
-          -p semantic-release@24
-          -p @semantic-release/changelog@6
-          -p @semantic-release/git@10
-          semantic-release
-          # npm publish (disabled): also pass -p @semantic-release/npm@12
+        # commit-analyzer, release-notes-generator and github ship with
+        # semantic-release, so no extra -p flags are needed.
+        run: npx --yes -p semantic-release@24 semantic-release
