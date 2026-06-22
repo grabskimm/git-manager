@@ -7,7 +7,7 @@
   NSIS installer upgrades an existing GitManager install in place.
 
   Run:
-    irm https://raw.githubusercontent.com/grabskimm/git-manager/main/install.ps1 | iex
+    irm https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.ps1 | iex
 
 .PARAMETER Version
   Install a specific tag (e.g. v1.2.3) instead of the latest release.
