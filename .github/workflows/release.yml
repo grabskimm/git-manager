@@ -3,20 +3,21 @@ name: Release
 # Versioning is driven by semantic-release on every push to main. It reads the
 # Conventional Commits since the last release (feat -> minor, fix -> patch,
 # feat!/BREAKING CHANGE -> major), computes the next version, updates CHANGELOG.md,
-# creates the `v<version>` git tag, publishes a GitHub Release with notes, and
-# publishes the CLI (@git-manager/engine) to npm.
+# creates the `v<version>` git tag, and publishes a GitHub Release with notes.
 #
 # The tag (`v*`) then drives .github/workflows/desktop-release.yml, which builds the
 # installers and attaches them + the auto-update manifests to that release.
-#
-# Secrets: NPM_TOKEN (npm automation token with publish rights to the @gitmanager
-# scope) gates the npm publish.
 #
 # IMPORTANT: for the tag push to trigger the desktop build, semantic-release must
 # push with a Personal Access Token (secret RELEASE_TOKEN) — tags pushed with the
 # default GITHUB_TOKEN do NOT trigger other workflows. Without RELEASE_TOKEN the
 # release is still created, but you must run desktop-release manually (or re-push
 # the tag) to attach installers.
+#
+# npm publishing is TEMPORARILY DISABLED. The @git-manager/engine package is not
+# published to npm yet (pending a valid NPM_TOKEN + the @git-manager npm org). To
+# re-enable, restore the steps/plugin marked "npm publish (disabled)" below and add
+# the @semantic-release/npm plugin back to .releaserc.json.
 
 on:
   push:
@@ -44,31 +45,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: "https://registry.npmjs.org" # writes the NPM_TOKEN .npmrc
+          # npm publish (disabled): add registry-url: "https://registry.npmjs.org"
 
-      - name: Install dependencies
-        run: npm install
-
-      # Build the publishable CLI (UI bundled into the engine's dist/) BEFORE
-      # semantic-release runs, so the @semantic-release/npm publish step has the
-      # built artifact on disk. The version is stamped into the package by the
-      # plugin's prepare step; dist/ doesn't depend on it.
-      - name: Build engine + UI
-        run: npm run build
+      # npm publish (disabled): the build below is only needed when the
+      # @semantic-release/npm plugin publishes the CLI. Re-enable together.
+      # - name: Install dependencies
+      #   run: npm install
+      # - name: Build engine + UI
+      #   run: npm run build
 
       - name: Semantic release
         env:
           # Prefer a PAT so the version tag triggers the desktop build; fall back
           # to GITHUB_TOKEN (release created, installers need a manual trigger).
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # Publishes @git-manager/engine to npm. If unset, the npm plugin fails
-          # the release — leave it unset (and drop @semantic-release/npm from
-          # .releaserc.json) if you don't want an npm publish.
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm publish (disabled): re-add NPM_TOKEN when publishing to npm.
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >-
           npx --yes
           -p semantic-release@24
           -p @semantic-release/changelog@6
           -p @semantic-release/git@10
-          -p @semantic-release/npm@12
           semantic-release
+          # npm publish (disabled): also pass -p @semantic-release/npm@12

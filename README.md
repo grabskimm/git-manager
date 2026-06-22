@@ -54,14 +54,8 @@ You need **Node ≥ 20** and **git**. For Claude reviews, install the
 [`claude`](https://docs.claude.com/en/docs/claude-code) CLI and log in once — everything else
 is bundled.
 
-The fastest way is the published CLI — **[install from npm](#install-from-npm)**:
-
-```bash
-npm install -g @git-manager/engine    # the `gitm` / `gitmanager` commands (UI bundled in)
-gitm                                 # serves on http://127.0.0.1:4317 and opens your browser
-```
-
-Or run from a source checkout of this repo:
+The quickest way is the **[desktop app](#desktop-app)** (download an installer, no
+build step). To run the CLI/web app, build from a source checkout of this repo:
 
 ```bash
 npm install
@@ -128,7 +122,11 @@ signing certificates and credentials.
 
 ### Install from npm
 
-The published CLI is **[`@git-manager/engine`](https://www.npmjs.com/package/@git-manager/engine)**
+> **Not published yet** — npm publishing is being finalized. Until then, use the
+> [desktop app](#desktop-app) or [install from source](#install-from-source). The
+> commands below will work once `@git-manager/engine` is live.
+
+The CLI will publish as **[`@git-manager/engine`](https://www.npmjs.com/package/@git-manager/engine)**
 — the engine with the UI already bundled in, so a single global install is fully
 self-contained (no build step, no separate UI package):
 
