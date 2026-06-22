@@ -175,13 +175,27 @@ function createSplash(): void {
   html,body{margin:0;height:100%;background:#0d1117;color:#c9d1d9;
     font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;
     justify-content:center;flex-direction:column;gap:14px}
-  .b{font-size:22px;font-weight:700}.b .d{color:#3fb950}
+  .logo{width:64px;height:64px}
+  .b{font-size:22px;font-weight:700;letter-spacing:0.2px}
   .s{font-size:13px;color:#8b949e}
   .spin{width:22px;height:22px;border:3px solid #30363d;border-top-color:#3fb950;
     border-radius:50%;animation:r .8s linear infinite}
   @keyframes r{to{transform:rotate(360deg)}}
 </style></head><body>
-  <div class="b">Git<span class="d">&#9679;</span>Manager</div>
+  <svg class="logo" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161b22"/><stop offset="1" stop-color="#090c10"/></linearGradient></defs>
+    <rect x="20" y="20" width="984" height="984" rx="225" fill="url(#g)"/>
+    <g fill="none" stroke-linecap="round" stroke-width="53">
+      <path d="M409.6 245.76 V 778.24" stroke="#3fb950"/>
+      <path d="M409.6 286.7 Q 675.84 307.2 675.84 512" stroke="#56d364"/>
+      <path d="M675.84 512 Q 675.84 716.8 409.6 737.3" stroke="#56d364"/></g>
+    <g stroke="#090c10" stroke-width="26">
+      <circle cx="409.6" cy="245.76" r="80" fill="#3fb950"/>
+      <circle cx="675.84" cy="512" r="80" fill="#56d364"/>
+      <circle cx="409.6" cy="778.24" r="80" fill="#3fb950"/></g>
+  </svg>
+  <div class="b">GitManager</div>
   <div class="spin"></div>
   <div class="s">Starting local engine&hellip;</div>
 </body></html>`;

@@ -142,7 +142,7 @@ export function App() {
           <div className="rail-header">
             <button type="button" className="brand brand-btn" onClick={() => navigate("/")}>
               <img className="brand-logo" src="/favicon.svg" alt="" width={18} height={18} />
-              Git<span className="dot">●</span>Manager
+              GitManager
             </button>
             <div className="row" style={{ gap: 4 }}>
               <button
