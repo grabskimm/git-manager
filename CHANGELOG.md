@@ -2,6 +2,18 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+# [1.4.0](https://github.com/grabskimm/git-manager/compare/v1.3.0...v1.4.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* address Copilot review comments on repo hide/show ([a130234](https://github.com/grabskimm/git-manager/commit/a1302348b6340908fb8a15ed59f6f3cf15ea0a06))
+
+
+### Features
+
+* allow hiding repos from view ([19f9b81](https://github.com/grabskimm/git-manager/commit/19f9b81190d9961185dac2186bd1bc8e1b4a63b8))
+
 # [1.3.0](https://github.com/grabskimm/git-manager/compare/v1.2.2...v1.3.0) (2026-06-22)
 
 
