@@ -95,7 +95,10 @@ export const api = {
 
   // repos
   listRepos: () => request<Repo[]>("/api/repos"),
+  listAllRepos: () => request<Repo[]>("/api/repos?all=true"),
   getRepo: (id: string) => request<Repo>(`/api/repos/${id}`),
+  updateRepo: (id: string, patch: { hidden?: boolean }) =>
+    request<Repo>(`/api/repos/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   branches: (id: string) => request<Branch[]>(`/api/repos/${id}/branches`),
   commits: (id: string, ref?: string) =>
     request<Commit[]>(`/api/repos/${id}/commits${ref ? `?ref=${encodeURIComponent(ref)}` : ""}`),

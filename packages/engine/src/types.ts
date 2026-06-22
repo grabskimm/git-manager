@@ -13,6 +13,7 @@ export interface Repo {
   default_branch: string | null;
   added_at: string;
   last_scanned_at: string | null;
+  hidden: boolean;
 }
 
 export type PrStatus = "open" | "merged" | "conflicted" | "closed";

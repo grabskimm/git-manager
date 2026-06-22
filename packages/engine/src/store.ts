@@ -40,16 +40,22 @@ export function removeSourceDir(db: DB, id: string): void {
 
 // ---- repos ----
 
-export function listRepos(db: DB): Repo[] {
-  return db
-    .prepare("SELECT * FROM repos ORDER BY display_name COLLATE NOCASE")
-    .all() as Repo[];
+export function listRepos(db: DB, opts: { includeHidden?: boolean } = {}): Repo[] {
+  const sql = opts.includeHidden
+    ? "SELECT * FROM repos ORDER BY display_name COLLATE NOCASE"
+    : "SELECT * FROM repos WHERE hidden = 0 ORDER BY display_name COLLATE NOCASE";
+  return db.prepare(sql).all() as Repo[];
 }
 
 export function getRepo(db: DB, id: string): Repo | undefined {
   return db.prepare("SELECT * FROM repos WHERE id = ?").get(id) as
     | Repo
     | undefined;
+}
+
+export function setRepoHidden(db: DB, id: string, hidden: boolean): void {
+  db.prepare("UPDATE repos SET hidden = ? WHERE id = ?").run(hidden ? 1 : 0, id);
+  debug(`store: setRepoHidden id=${id} hidden=${hidden}`);
 }
 
 export function upsertRepo(
