@@ -2,6 +2,18 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+# [1.2.0](https://github.com/grabskimm/git-manager/compare/v1.1.1...v1.2.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* **storage:** run wrangler in a writable cwd (fixes R2 backup on desktop) ([e6c53ec](https://github.com/grabskimm/git-manager/commit/e6c53ec956d6888b5208a4b7d2ece38061b822f6))
+
+
+### Features
+
+* **desktop:** macOS in-app update runs the install script (one click) ([201b983](https://github.com/grabskimm/git-manager/commit/201b9836606646c1c944b437fd27e969f9f908a7))
+
 ## [1.1.1](https://github.com/grabskimm/git-manager/compare/v1.1.0...v1.1.1) (2026-06-22)
 
 
