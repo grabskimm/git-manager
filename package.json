@@ -1,6 +1,7 @@
 {
   "name": "gitmanager",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Local-first, GitHub-like UI over multiple local git repositories with local PRs and automatic AI review.",
   "type": "module",
