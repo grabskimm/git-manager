@@ -137,10 +137,11 @@ on every push to `main`, driven by [Conventional Commits](https://www.convention
 So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The flow:
 
 1. **`.github/workflows/release.yml`** runs semantic-release: it computes the next
-   version from the commits, creates the **`v<version>` git tag**, and publishes a
-   **GitHub Release** with generated notes. (No releasable commits → it does nothing.)
-   `main` is protected, so it does **not** commit a `CHANGELOG.md` back — the notes
-   live on the GitHub Release. npm publishing of `@git-manager/engine` is currently
+   version from the commits, updates `CHANGELOG.md` (committed back to `main`),
+   creates the **`v<version>` git tag**, and publishes a **GitHub Release** with the
+   same notes. (No releasable commits → it does nothing.) Because `main` is protected,
+   the changelog commit only lands if the `RELEASE_TOKEN` identity is on the branch
+   ruleset's **bypass list**. npm publishing of `@git-manager/engine` is currently
    **disabled** — re-enable it via the note in `release.yml` + `.releaserc.json`.
 2. The new `v*` tag triggers **`.github/workflows/desktop-release.yml`**, which:
    1. Writes the tag version into every `package.json` (the single source of truth
@@ -158,11 +159,13 @@ So you don't tag by hand — just merge Conventional-Commit PRs into `main`. The
 > `RELEASE_TOKEN` secret. Without it the release + tag are still created, but you must
 > trigger the installer build manually (re-push the tag, or run the workflow).
 >
-> Because `main` is protected (changes require a PR), semantic-release does **not**
-> commit a `CHANGELOG.md` back to the branch — the `@semantic-release/git` plugin is
-> intentionally omitted, and the release notes live on the GitHub Release. To restore
-> an in-repo changelog, grant the `RELEASE_TOKEN` identity a ruleset bypass and re-add
-> `@semantic-release/git`.
+> Because `main` is protected (changes require a PR), the `@semantic-release/git`
+> commit that updates `CHANGELOG.md` is a **direct push to `main`** — it only succeeds
+> if the `RELEASE_TOKEN` identity is on the branch ruleset's **bypass list**
+> (Repo → Settings → Rules → the `main` ruleset → Bypass list). Without that entry the
+> push is rejected (GH013) and the release aborts. (The simpler alternative is to drop
+> `@semantic-release/changelog` + `git` and treat the GitHub Release notes as the
+> single source of truth — no bypass needed.)
 
 You can still cut a release by hand if needed — `git tag v1.2.0 && git push origin
 v1.2.0` triggers the installer build directly.
