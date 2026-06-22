@@ -32,10 +32,11 @@ manual **Run workflow** (`workflow_dispatch`). The live URL is
   `TODO:` comment instead of guessing.
 - The **version** in the footer (`v1.1.1`) is maintained by hand — bump it when a
   new release ships (or replace it with whatever the current release is).
-- **Screenshot:** there's no first-party app screenshot in the repo yet, so the hero
-  shows a placeholder window (look for the `TODO` comment in `index.html`). To use a
-  real one, drop it at `assets/screenshot.png` (or `.gif`) and swap the `.preview`
-  block for an `<img>`.
+- **Hero visual:** the hero shows a terminal mock of example `gitm` commands (no
+  first-party screenshot ships in the repo). To use a real screenshot/GIF instead,
+  drop it at `assets/screenshot.png` and swap the `.preview` `<figure>` for
+  `<img class="shot" src="assets/screenshot.png" alt="...">` (see the `TODO` comment
+  in `index.html`; the `.shot` style is already defined).
 
 ## Design notes
 
