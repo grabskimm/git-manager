@@ -2,6 +2,14 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.2.2](https://github.com/grabskimm/git-manager/compare/v1.2.1...v1.2.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* **desktop:** fix terminal in packaged app (chmod/unquarantine unpacked spawn-helper) ([08635c6](https://github.com/grabskimm/git-manager/commit/08635c6f63f31f65dd88b211e7f040c07e9cbf97))
+* **desktop:** make spawn-helper fix per-candidate best-effort ([ae8aa97](https://github.com/grabskimm/git-manager/commit/ae8aa97ad28a730c71af6ad5fe6726ee254df276))
+
 ## [1.2.1](https://github.com/grabskimm/git-manager/compare/v1.2.0...v1.2.1) (2026-06-22)
 
 
