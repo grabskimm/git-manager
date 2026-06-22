@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GitManager — a GitHub-style home for your local repos</title>
+  <meta name="description" content="GitManager is a local-first app that gives every git repo on your disk a GitHub-style UI: browse code, open local pull requests, and get an automatic Claude review before you merge. No account, nothing leaves your machine." />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#090c10" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <link rel="canonical" href="https://grabskimm.github.io/git-manager/" />
+
+  <!-- Open Graph / social -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="GitManager — a GitHub-style home for your local repos" />
+  <meta property="og:description" content="Local-first git, with real pull requests and an automatic Claude review. No account, nothing leaves your machine." />
+  <meta property="og:url" content="https://grabskimm.github.io/git-manager/" />
+  <meta property="og:image" content="https://grabskimm.github.io/git-manager/assets/logo.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+  <link rel="apple-touch-icon" href="assets/logo.png" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- No-flash theme: resolve the saved/system theme before first paint. -->
+  <script>
+    (function () {
+      try {
+        document.documentElement.classList.add('js');
+        var saved = localStorage.getItem('gm-theme');
+        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="GitManager home">
+      <img class="brand__logo" src="assets/logo.svg" alt="" width="28" height="28" />
+      <span class="brand__name">GitManager</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#get-started">Get started</a>
+      <a href="https://github.com/grabskimm/git-manager" rel="noopener">GitHub</a>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color theme" title="Toggle theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <span id="top"></span>
+
+    <!-- ============================ HERO ============================ -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__inner">
+        <p class="eyebrow reveal">Local-first · loopback-only · no account</p>
+        <h1 id="hero-title" class="reveal">A GitHub-style home for the git repos that live only on your machine.</h1>
+        <p class="hero__sub reveal">
+          Point GitManager at your project folders and get one clean dashboard over every repo it finds —
+          browse code, open real pull requests, and get an automatic Claude review before you merge.
+          Nothing leaves your machine unless you ask it to.
+        </p>
+        <div class="cta-row reveal">
+          <a class="btn btn--primary" href="https://github.com/grabskimm/git-manager/releases/latest" rel="noopener">
+            Download
+          </a>
+          <a class="btn btn--ghost" href="https://github.com/grabskimm/git-manager" rel="noopener">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <p class="hero__note reveal">Native app for Windows, macOS &amp; Linux — or run the CLI / web app from source.</p>
+      </div>
+
+      <!--
+        TODO: Replace this placeholder with a real screenshot or GIF of the app.
+        Drop the file at site/assets/screenshot.png (or .gif) and swap the
+        .preview block below for: <img src="assets/screenshot.png" alt="..." />
+        No first-party screenshot ships in the repo today, so this is a stand-in.
+      -->
+      <figure class="preview reveal" aria-label="GitManager interface preview (placeholder)">
+        <div class="preview__chrome" aria-hidden="true">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="preview__addr">127.0.0.1:4317</span>
+        </div>
+        <div class="preview__body">
+          <img class="preview__mark" src="assets/logo.svg" alt="" width="72" height="72" />
+          <p class="preview__label">App preview</p>
+          <p class="preview__todo">TODO: add a real screenshot / GIF</p>
+        </div>
+      </figure>
+    </section>
+
+    <!-- ========================== PROBLEM ========================== -->
+    <section class="section" id="problem" aria-labelledby="problem-title">
+      <div class="section__head reveal">
+        <p class="kicker">The problem</p>
+        <h2 id="problem-title">Most of your repos never reach GitHub.</h2>
+        <p class="section__lede">
+          If you (or your coding agents) ship a lot of small projects, they just pile up in
+          <code>~/projects</code> as loose git repos. That leaves three gaps.
+        </p>
+      </div>
+      <ul class="cards cards--3" role="list">
+        <li class="card reveal">
+          <span class="card__tag">No UI</span>
+          <h3>The CLI is the only view</h3>
+          <p>You're back to <code>cd</code>-ing around and running <code>git&nbsp;log</code>, with no overview across the repos sitting on your disk.</p>
+        </li>
+        <li class="card reveal">
+          <span class="card__tag">No review</span>
+          <h3>Nothing checks what lands</h3>
+          <p>No pull-request flow, so changes hit <code>main</code> with nobody — and nothing — reviewing them. That bites hardest for agent-written code.</p>
+        </li>
+        <li class="card reveal">
+          <span class="card__tag">No remote</span>
+          <h3>Stuck on one machine</h3>
+          <p>Moving a repo to another laptop means setting up a remote and a server you didn't want just to carry your own code around.</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ========================= FEATURES ========================== -->
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="section__head reveal">
+        <p class="kicker">What GitManager does</p>
+        <h2 id="features-title">One pane of glass for your local repos.</h2>
+        <p class="section__lede">
+          A real PR flow with an automatic Claude review as the quality gate — running fully offline on loopback.
+        </p>
+      </div>
+      <ul class="cards cards--2" role="list">
+        <li class="card reveal">
+          <span class="card__icon" aria-hidden="true">🗂</span>
+          <h3>Local-first, multi-repo dashboard</h3>
+          <p>Recursive scan of the folders you choose, with filter and search. Your <code>.git</code> stays the source of truth — no import step, no syncing to a server.</p>
+        </li>
+        <li class="card reveal">
+          <span class="card__icon" aria-hidden="true">🔀</span>
+          <h3>Real pull requests, locally</h3>
+          <p>Open a PR against a local repo, view the diff, then merge (fast-forward or merge commit) or close — no remote required. Merges run in a throwaway worktree, so your checkout is never disturbed.</p>
+        </li>
+        <li class="card reveal">
+          <span class="card__icon" aria-hidden="true">🤖</span>
+          <h3>Automatic Claude review</h3>
+          <p>Every PR gets an AI review streamed into the thread before you merge. Reply to it, or let it implement the fix (opt-in). No <code>claude</code> CLI? The review skips cleanly — your PR is never blocked.</p>
+        </li>
+        <li class="card reveal">
+          <span class="card__icon" aria-hidden="true">☁️</span>
+          <h3>Move machines without GitHub</h3>
+          <p>Back up and restore repos as git bundles to S3, Cloudflare R2, Azure, or a local folder. GitManager stores no credentials — you just log in per device.</p>
+        </li>
+      </ul>
+      <p class="more reveal">
+        Also: <span>create repos from the UI</span> · <span>syntax-highlighted code &amp; rendered Markdown</span> ·
+        <span>watch your AI agents</span> · <span>optional remote PRs via <code>gh</code></span> ·
+        <span>built-in terminal &amp; repo chat (opt-in)</span>
+      </p>
+    </section>
+
+    <!-- ======================== GET STARTED ======================== -->
+    <section class="section" id="get-started" aria-labelledby="start-title">
+      <div class="section__head reveal">
+        <p class="kicker">Get started</p>
+        <h2 id="start-title">Up and running in three steps.</h2>
+        <p class="section__lede">The desktop app bundles everything — no build step. You just need <strong>git</strong> on your PATH.</p>
+      </div>
+
+      <ol class="steps" role="list">
+        <li class="step reveal">
+          <div class="step__num" aria-hidden="true">1</div>
+          <div class="step__body">
+            <h3>Install</h3>
+            <p>One command grabs the right installer from the latest release and upgrades in place if it's already installed.</p>
+            <div class="code" data-label="macOS / Linux">
+              <button class="copy" type="button" aria-label="Copy command">Copy</button>
+              <pre><code>curl -fsSL https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.sh | sh</code></pre>
+            </div>
+            <div class="code" data-label="Windows (PowerShell)">
+              <button class="copy" type="button" aria-label="Copy command">Copy</button>
+              <pre><code>irm https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.ps1 | iex</code></pre>
+            </div>
+            <p class="step__hint">Prefer to click? Grab a <code>.exe</code>, <code>.dmg</code>, <code>.AppImage</code> or <code>.deb</code> from the <a href="https://github.com/grabskimm/git-manager/releases/latest" rel="noopener">Releases page</a>.</p>
+          </div>
+        </li>
+
+        <li class="step reveal">
+          <div class="step__num" aria-hidden="true">2</div>
+          <div class="step__body">
+            <h3>Point it at your code</h3>
+            <p>Launch GitManager, open <strong>Settings → Sources</strong>, and add a folder you keep projects in (e.g. <code>~/projects</code>). It scans the folder and lists every repo inside — or click <strong>➕ New repository</strong> to start a fresh one.</p>
+          </div>
+        </li>
+
+        <li class="step reveal">
+          <div class="step__num" aria-hidden="true">3</div>
+          <div class="step__body">
+            <h3>Open a PR &amp; merge</h3>
+            <p>In a repo, switch to <strong>Pull requests</strong>, pick a base and head branch, and <strong>Open pull request</strong>. Claude reviews the diff automatically (streamed live). Then merge, close, or reply to the review. Done.</p>
+          </div>
+        </li>
+      </ol>
+
+      <details class="disclosure reveal">
+        <summary>Build from source instead (CLI / web app)</summary>
+        <div class="disclosure__body">
+          <p>Needs <strong>Node ≥ 20</strong> and <strong>git</strong>. For Claude reviews, install the <a href="https://docs.claude.com/en/docs/claude-code" rel="noopener"><code>claude</code></a> CLI and log in once.</p>
+          <div class="code" data-label="From a source checkout">
+            <button class="copy" type="button" aria-label="Copy commands">Copy</button>
+            <pre><code>npm install
+npm run build     # builds the UI, bundles it into the engine
+npm start         # serves on http://127.0.0.1:4317 and opens your browser</code></pre>
+          </div>
+          <p class="step__hint">Headless? <code>npm start -- --no-open</code>. The <code>gitm</code> CLI then drives PRs and backups from the shell.</p>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <a class="brand brand--sm" href="#top" aria-label="GitManager home">
+        <img class="brand__logo" src="assets/logo.svg" alt="" width="22" height="22" />
+        <span class="brand__name">GitManager</span>
+      </a>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="https://github.com/grabskimm/git-manager" rel="noopener">Repository</a>
+        <a href="https://github.com/grabskimm/git-manager/blob/main/LICENSE" rel="noopener">MIT License</a>
+        <a href="https://github.com/grabskimm/git-manager/releases/latest" rel="noopener">v1.1.1</a>
+      </nav>
+      <p class="footer-note">Runs on loopback. No telemetry, no network calls except localhost.</p>
+    </div>
+  </footer>
+
+  <script src="main.js" defer></script>
+</body>
+</html>

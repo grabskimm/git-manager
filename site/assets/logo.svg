@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GitManager">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#161b22"/>
+      <stop offset="1" stop-color="#090c10"/>
+    </linearGradient>
+  </defs>
+  <rect x="20" y="20" width="984" height="984" rx="225" fill="url(#bg)"/>
+  <g fill="none" stroke-linecap="round" stroke-width="53">
+    <path d="M409.6 245.76 V 778.24" stroke="#3fb950"/>
+    <path d="M409.6 286.7 Q 675.84 307.2 675.84 512" stroke="#56d364"/>
+    <path d="M675.84 512 Q 675.84 716.8 409.6 737.3" stroke="#56d364"/>
+  </g>
+  <g stroke="#090c10" stroke-width="26">
+    <circle cx="409.6" cy="245.76" r="80" fill="#3fb950"/>
+    <circle cx="675.84" cy="512" r="80" fill="#56d364"/>
+    <circle cx="409.6" cy="778.24" r="80" fill="#3fb950"/>
+  </g>
+</svg>
