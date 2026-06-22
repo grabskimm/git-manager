@@ -2,6 +2,19 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+# [1.3.0](https://github.com/grabskimm/git-manager/compare/v1.2.2...v1.3.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* **cli:** harden background lifecycle per review ([8e9f14c](https://github.com/grabskimm/git-manager/commit/8e9f14cae401d9ae3f17b0c9fd14b4834341b005))
+
+
+### Features
+
+* **cli:** add `gitm update`; let the engine own its pid file ([fbbea1b](https://github.com/grabskimm/git-manager/commit/fbbea1bdedb1a7b2d69b248495d06e0c390524e6))
+* **cli:** run the engine in the background by default; add open/stop ([a650509](https://github.com/grabskimm/git-manager/commit/a650509dac75d63d1477a4141ab5a78c839f9a66))
+
 ## [1.2.2](https://github.com/grabskimm/git-manager/compare/v1.2.1...v1.2.2) (2026-06-22)
 
 
