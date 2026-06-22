@@ -89,8 +89,21 @@ desktop app for **Windows, macOS, and Linux** that runs the same engine + UI
 headlessly and 100% locally — no terminal, no manual server start — with the app
 version in the sidebar and built-in auto-update.
 
-**Download a prebuilt installer** (no build step) from the
-**[Releases page](https://github.com/grabskimm/git-manager/releases/latest)** and run it:
+**Install script** (downloads the right installer from the latest release and
+**upgrades in place** if GitManager is already installed):
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/grabskimm/git-manager/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/grabskimm/git-manager/main/install.ps1 | iex
+```
+
+Or **download a prebuilt installer** by hand from the
+**[Releases page](https://github.com/grabskimm/git-manager/releases/latest)**:
 
 | OS | Download |
 | --- | --- |
