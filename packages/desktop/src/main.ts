@@ -429,8 +429,15 @@ app.on("before-quit", () => {
   stopEngine();
 });
 app.on("window-all-closed", () => {
-  stopEngine();
-  if (process.platform !== "darwin") app.quit();
+  // On macOS, closing the window keeps the app alive in the dock — so keep the
+  // engine running too. Otherwise re-activating (dock click) recreates a window
+  // pointing at a dead engine and shows a black screen. The engine is stopped on
+  // an actual quit (before-quit / will-quit). On Windows/Linux, closing the last
+  // window quits the app.
+  if (process.platform !== "darwin") {
+    stopEngine();
+    app.quit();
+  }
 });
 app.on("will-quit", stopEngine);
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
@@ -440,7 +447,14 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
     app.quit();
   });
 }
-// macOS: re-create a window when the dock icon is clicked and the engine is up.
+// macOS: re-create a window when the dock icon is clicked. The engine is kept
+// alive across window closes (see window-all-closed), so it's normally still up.
+// If it isn't (e.g. it crashed), show a clear message instead of a black window.
 app.on("activate", () => {
-  if (mainWindow === null && enginePort) createMainWindow();
+  if (mainWindow !== null) return;
+  if (engine && enginePort) {
+    createMainWindow();
+  } else if (!shuttingDown) {
+    showFatal("The GitManager engine is no longer running. Please quit and reopen GitManager.");
+  }
 });
