@@ -60,10 +60,10 @@ build step). To run the CLI/web app, build from a source checkout of this repo:
 ```bash
 npm install
 npm run build     # builds the UI, bundles it into the engine
-npm start         # serves on http://127.0.0.1:4317 and opens your browser
+npm start         # starts the engine in the background on http://127.0.0.1:4317
 ```
 
-Then, in the UI:
+Open **http://127.0.0.1:4317** in your browser (or run `gitm open`). Then, in the UI:
 
 1. Click **➕ New repository** to spin up a fresh repo, **or** go to **Settings → Sources** and
    add a folder you already keep projects in (e.g. `~/projects`). GitManager scans it and lists
@@ -74,7 +74,9 @@ Then, in the UI:
    installed? The review is skipped cleanly — your PR is never blocked.
 4. **Merge**, **Close**, or reply to the review. Done.
 
-Headless (no browser)? `npm start -- --no-open`.
+`npm start` runs the engine in the **background** and frees your terminal — open the UI
+any time with `gitm open`, and stop it with `gitm stop`. Need it in the foreground (e.g.
+to watch logs)? `npm start -- --foreground`.
 
 ### Desktop app
 
@@ -132,13 +134,15 @@ self-contained (no build step, no separate UI package):
 
 ```bash
 npm install -g @git-manager/engine    # installs the `gitm` and `gitmanager` commands
-gitm                                 # start the engine + open the UI
+gitm                                 # start the engine in the background
+gitm open                            # open the UI in your browser
 gitm --version                       # check your installed version
 ```
 
-That's the whole app: `gitm` with no arguments starts the local engine and opens
-the UI at `http://127.0.0.1:4317`; the subcommands below drive PRs/backups from the
-shell. You still need **git** (and, for AI reviews, the optional
+That's the whole app: `gitm` with no arguments starts the local engine **in the
+background** (freeing your terminal) at `http://127.0.0.1:4317`, `gitm open` opens
+the UI, and the subcommands below drive PRs/backups from the shell. You still need
+**git** (and, for AI reviews, the optional
 [`claude`](https://docs.claude.com/en/docs/claude-code) CLI) on your PATH.
 
 To upgrade later: `npm install -g @git-manager/engine@latest`. Prefer a native
@@ -155,7 +159,7 @@ global install of the local workspace is also self-contained:
 ```bash
 npm install && npm run build
 npm install -g ./packages/engine    # adds `gitm` and `gitmanager`
-gitm                                # start it from anywhere
+gitm                                # start it (background) from anywhere; `gitm open` for the UI
 ```
 
 Re-run those last two lines to pick up code changes later.
@@ -178,11 +182,15 @@ Re-run those last two lines to pick up code changes later.
 
 ## Using the command line (`gitm`)
 
-`gitm` with no arguments starts the engine. The subcommands talk to a running engine over
-loopback (reusing the local token automatically), so you can drive PRs without the browser:
+`gitm` with no arguments starts the engine in the background and returns to your prompt. The
+subcommands talk to a running engine over loopback (reusing the local token automatically), so
+you can drive PRs without the browser:
 
 ```bash
-gitm                                   # start the engine + open the UI
+gitm                                   # start the engine in the background (frees the terminal)
+gitm start --foreground                # …or run it in the foreground (-f); Ctrl-C to stop
+gitm open                              # open the UI (starts the engine first if needed)
+gitm stop                              # stop the background engine
 gitm source add <path|url>             # add a source folder (or clone a URL into one)
 gitm source list                       # list source folders
 gitm source remove <id>                # remove a source folder
@@ -345,7 +353,11 @@ Stored in SQLite (`config` table), editable in **Settings → Features**:
 | `sync_interval_minutes` | `10` | Interval for scheduled backups when enabled |
 
 Environment overrides: `GITMANAGER_PORT` (default `4317`), `GITMANAGER_HOME` (default
-`~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`).
+`~/.gitmanager`), `GITMANAGER_CLAUDE_BIN` (default `claude`), `GITMANAGER_NO_OPEN` (set to `1`
+to never launch a browser, even for `gitm open`).
+
+The background engine writes its pid and logs to `~/.gitmanager/engine.pid` and
+`~/.gitmanager/engine.log` (`gitm stop` reads the pid file).
 
 ## Development
 

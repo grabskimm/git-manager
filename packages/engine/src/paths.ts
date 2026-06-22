@@ -20,3 +20,13 @@ export function tokenPath(): string {
 export function dbPath(): string {
   return path.join(gitmanagerHome(), "gitmanager.db");
 }
+
+/** PID of the background engine (written by `gitm start`, read by `gitm stop`). */
+export function pidPath(): string {
+  return path.join(gitmanagerHome(), "engine.pid");
+}
+
+/** Where a backgrounded engine's stdout/stderr are appended. */
+export function logPath(): string {
+  return path.join(gitmanagerHome(), "engine.log");
+}
