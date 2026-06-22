@@ -54,6 +54,7 @@ body {
   font-size: 17px;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  overflow-x: clip; /* contain transient slide-in transforms */
 }
 img, svg { display: block; max-width: 100%; }
 a { color: var(--accent-2); text-decoration: none; }
@@ -184,15 +185,22 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 .btn--ghost:hover { border-color: var(--accent); }
 
 /* ------------------------------ preview ------------------------------ */
-/* Two hero visuals stacked: small terminal above the large screenshot.
-   (flex column → switch to `row` for a side-by-side layout.) */
+/* Two hero visuals side by side: small terminal + large screenshot, each
+   sliding in from its own side. Stacks (small above large) on narrow screens. */
 .hero__media {
+  max-width: var(--maxw);
   margin: clamp(40px, 6vw, 64px) auto 0;
+  padding-inline: 24px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 20px;
-  width: 100%;
+  gap: 24px;
+}
+.hero__media .preview  { flex: 1.5 1 0; min-width: 0; max-width: none; }
+.hero__media .terminal { flex: 1.25 1 0; min-width: 0; max-width: none; }
+@media (max-width: 960px) {
+  .hero__media { flex-direction: column; gap: 18px; }
+  .hero__media .preview  { flex: none; width: 100%; max-width: 880px; }
+  .hero__media .terminal { flex: none; width: 100%; max-width: 660px; }
 }
 .preview {
   width: 100%;
@@ -240,7 +248,7 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   margin: 0;
   padding: 18px 20px 20px;
   font-family: var(--font-mono);
-  font-size: clamp(0.74rem, 1.6vw, 0.9rem);
+  font-size: clamp(0.72rem, 1vw, 0.82rem);
   line-height: 1.95;
   color: var(--text);
   overflow-x: auto;
@@ -311,13 +319,14 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
 .step {
   display: grid;
-  grid-template-columns: 48px 1fr;
+  grid-template-columns: 48px minmax(0, 1fr);
   gap: 18px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
 }
+.step__body { min-width: 0; }
 .step__num {
   width: 40px; height: 40px;
   display: grid; place-items: center;
@@ -422,16 +431,20 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
 @media (max-width: 600px) {
   body { font-size: 16px; }
   .site-nav a:not(:last-of-type) { display: none; }
-  .step { grid-template-columns: 1fr; gap: 12px; }
+  .step { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
 
 /* --------------------------- scroll reveal --------------------------- */
-.js .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.js .reveal { opacity: 0; transform: translateY(14px); transition: opacity 0.55s ease, transform 0.55s ease; }
+.js .reveal.from-left  { transform: translateX(-36px); }
+.js .reveal.from-right { transform: translateX(36px); }
 .js .reveal.is-visible { opacity: 1; transform: none; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .js .reveal { opacity: 1; transform: none; transition: none; }
+  .js .reveal,
+  .js .reveal.from-left,
+  .js .reveal.from-right { opacity: 1; transform: none; transition: none; }
   .btn:hover, .card:hover { transform: none; }
   .terminal__body .cur { animation: none; }
 }
