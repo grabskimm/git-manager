@@ -26,10 +26,9 @@
   <script>
     (function () {
       try {
-        document.documentElement.classList.add('js');
+        // Dark by default; only an explicit toggle (saved) switches to light.
         var saved = localStorage.getItem('gm-theme');
-        var theme = saved || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.setAttribute('data-theme', saved || 'dark');
       } catch (e) {}
     })();
   </script>
@@ -78,24 +77,28 @@
         <p class="hero__note reveal">Native app for Windows, macOS &amp; Linux — or run the CLI / web app from source.</p>
       </div>
 
-      <!--
-        TODO: A real app screenshot can replace this terminal demo.
-        Drop the image at site/assets/screenshot.png (or .gif) and swap this whole
-        <figure> for: <img class="shot" src="assets/screenshot.png" alt="The GitManager dashboard" width="..." height="..." />
-      -->
-      <figure class="preview reveal" aria-label="Example gitm command-line session">
-        <div class="preview__chrome" aria-hidden="true">
-          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="preview__title">gitm — local-first git</span>
-        </div>
-        <pre class="preview__term"><code><span class="p">$</span> gitm                <span class="c"># start the engine + open the UI</span>
-<span class="p">$</span> gitm scan           <span class="c"># re-scan your source folders</span>
-<span class="p">$</span> gitm repos          <span class="c"># list tracked repositories</span>
-<span class="p">$</span> gitm pr create      <span class="c"># open a local PR (auto-detected)</span>
-<span class="p">$</span> gitm pr merge 42    <span class="c"># merge: fast-forward or merge commit</span>
-<span class="p">$</span> gitm sync push      <span class="c"># back up now (local &#8594; remote)</span>
-<span class="p">$</span> <span class="cur" aria-hidden="true">&#9611;</span></code></pre>
-      </figure>
+      <div class="showcase" role="group" aria-label="Interactive preview — select the gitm terminal or the app screenshot">
+        <button type="button" class="showcase__panel showcase__panel--terminal" aria-pressed="false">
+          <figure class="terminal reveal from-left" aria-label="Example gitm command-line session">
+            <div class="terminal__bar" aria-hidden="true">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="title">gitm — zsh</span>
+            </div>
+            <pre class="terminal__body"><code><span class="pr">❯</span> gitm              <span class="c"># start engine, open UI</span>
+<span class="pr">❯</span> gitm pr create    <span class="c"># open a local PR</span>
+<span class="pr">❯</span> gitm pr merge 42  <span class="c"># merge / fast-forward</span>
+<span class="pr">❯</span> gitm sync push    <span class="c"># back up: cloud or disk</span>
+<span class="pr">❯</span> <span class="cur" aria-hidden="true">&#9611;</span></code></pre>
+          </figure>
+        </button>
+
+        <button type="button" class="showcase__panel showcase__panel--shot" aria-pressed="true">
+          <figure class="preview reveal from-right">
+            <img class="shot" src="assets/screenshot.png" width="3024" height="1604" loading="eager" decoding="async"
+                 alt="The GitManager dashboard: a sidebar of local repositories, a summary of repos and pull requests, recent pull requests, and a panel of live AI agent sessions (Claude Code, OpenAI Codex, Antigravity)." />
+          </figure>
+        </button>
+      </div>
     </section>
 
     <!-- ========================== PROBLEM ========================== -->

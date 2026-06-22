@@ -4,6 +4,11 @@
 (function () {
   'use strict';
 
+  // The reveal-on-scroll effect hides `.reveal` elements via the `js` class.
+  // Add it here (not in the inline <head> script) so that if this file ever
+  // fails to load, nothing stays hidden — content degrades to fully visible.
+  document.documentElement.classList.add('js');
+
   /* ---- Theme toggle (persisted; initial theme set inline in <head>) ---- */
   var toggle = document.getElementById('theme-toggle');
   if (toggle) {
@@ -43,6 +48,27 @@
       }
     });
   });
+
+  /* ---- Hero showcase: spotlight one panel, dim the others ---- */
+  var showcase = document.querySelector('.showcase');
+  if (showcase) {
+    var panels = Array.prototype.slice.call(showcase.querySelectorAll('.showcase__panel'));
+    var pick = function (panel) {
+      panels.forEach(function (p) { p.setAttribute('aria-pressed', String(p === panel)); });
+    };
+    panels.forEach(function (panel, i) {
+      panel.addEventListener('click', function () { pick(panel); });
+      panel.addEventListener('keydown', function (e) {
+        var dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1
+                : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+        if (!dir) return;
+        e.preventDefault();
+        var next = panels[(i + dir + panels.length) % panels.length];
+        pick(next);
+        next.focus();
+      });
+    });
+  }
 
   /* ---- Scroll reveal (skipped when motion is reduced) ---- */
   var reveals = document.querySelectorAll('.reveal');

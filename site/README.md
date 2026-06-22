@@ -32,11 +32,12 @@ manual **Run workflow** (`workflow_dispatch`). The live URL is
   `TODO:` comment instead of guessing.
 - The **version** in the footer (`v1.1.1`) is maintained by hand — bump it when a
   new release ships (or replace it with whatever the current release is).
-- **Hero visual:** the hero shows a terminal mock of example `gitm` commands (no
-  first-party screenshot ships in the repo). To use a real screenshot/GIF instead,
-  drop it at `assets/screenshot.png` and swap the `.preview` `<figure>` for
-  `<img class="shot" src="assets/screenshot.png" alt="...">` (see the `TODO` comment
-  in `index.html`; the `.shot` style is already defined).
+- **Hero visual:** the hero shows the real app screenshot (`assets/screenshot.png`,
+  the `.shot` `<img>`) with a compact `gitm` terminal demo (`.terminal`) beneath it.
+  To replace the screenshot, swap the file at `assets/screenshot.png` and keep the
+  `width`/`height` on the `<img>` in sync with the new image to avoid layout shift.
+  The PNG is large (~3024px); compressing or downscaling it to ~1760px would help
+  page performance (no image tooling was available to do this automatically).
 
 ## Design notes
 
