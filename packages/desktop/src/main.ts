@@ -125,6 +125,25 @@ function resolveEngineEntry(): string {
  * No-op on Windows (GUI processes there inherit the user `PATH` already) and in
  * dev (the app was launched from a shell that already has the right `PATH`).
  */
+/**
+ * Pick a shell to probe for the user's PATH. Prefer `$SHELL` (the user's actual
+ * login shell). If it's unset, fall back to a shell that sources the user's rc
+ * files AND supports the `-l` (login) flag — `/bin/sh` is often `dash`, which
+ * doesn't, so probing it with `-l` just fails. zsh (macOS default) / bash (Linux
+ * default) are the safe defaults; `/bin/sh` is the last resort.
+ */
+function pickProbeShell(): string {
+  if (process.env.SHELL) return process.env.SHELL;
+  for (const cand of ["/bin/zsh", "/bin/bash"]) {
+    try {
+      if (fs.existsSync(cand)) return cand;
+    } catch {
+      // ignore and try the next candidate
+    }
+  }
+  return "/bin/sh";
+}
+
 let cachedUserPath: string | null = null;
 function resolveUserPath(): string {
   if (cachedUserPath !== null) return cachedUserPath;
@@ -139,9 +158,19 @@ function resolveUserPath(): string {
     // Run an interactive login shell so it sources the user's profile/rc files,
     // then print just PATH between sentinels we can isolate from any login noise
     // (banners, `motd`, etc. that some shells emit on startup).
-    const shellBin = process.env.SHELL || "/bin/sh";
+    const shellBin = pickProbeShell();
+    const base = path.basename(shellBin);
+    const isFish = base === "fish";
+    // Only bash/zsh/fish meaningfully support `-l -i`; plain sh/dash would error
+    // on `-l`, so probe those with just `-c` (no rc sourcing, but no failure).
+    const loginCapable = isFish || base === "bash" || base === "zsh";
     const marker = "__GM_PATH__";
-    const out = execFileSync(shellBin, ["-ilc", `printf '%s%s%s' '${marker}' "$PATH" '${marker}'`], {
+    // In fish, $PATH is a list that stringifies space-separated — force a
+    // colon-delimited value with `string join`. POSIX shells expand it directly.
+    const expr = isFish ? `(string join : $PATH)` : `"$PATH"`;
+    const inner = `printf '%s%s%s' '${marker}' ${expr} '${marker}'`;
+    const flags = loginCapable ? ["-l", "-i", "-c", inner] : ["-c", inner];
+    const out = execFileSync(shellBin, flags, {
       encoding: "utf8",
       timeout: 5_000,
       stdio: ["ignore", "pipe", "ignore"],
