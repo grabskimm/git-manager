@@ -205,29 +205,36 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--border-strong);
 }
-.preview__addr {
+.preview__title {
   margin-left: 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.76rem;
   color: var(--muted);
 }
-.preview__body {
-  display: grid;
-  place-items: center;
-  gap: 0.5rem;
-  padding: clamp(48px, 12vw, 110px) 1rem;
-  background:
-    radial-gradient(120% 120% at 50% 0%, var(--accent-soft), transparent 60%),
-    repeating-linear-gradient(0deg, transparent 0 27px, color-mix(in srgb, var(--border) 55%, transparent) 27px 28px);
-}
-.preview__mark { opacity: 0.9; border-radius: 14px; }
-.preview__label { margin: 0.4rem 0 0; font-weight: 600; }
-.preview__todo {
+.preview__term {
   margin: 0;
+  padding: 22px 24px 26px;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--muted);
+  font-size: clamp(0.72rem, 1.7vw, 0.92rem);
+  line-height: 2;
+  color: var(--text);
+  overflow-x: auto;
+  background:
+    radial-gradient(130% 130% at 0% 0%, var(--accent-soft), transparent 55%),
+    var(--bg-elev);
 }
+.preview__term code { font-family: inherit; font-size: inherit; }
+.preview__term .p { color: var(--accent-2); font-weight: 700; }
+.preview__term .c { color: var(--muted); }
+.preview__term .cur {
+  display: inline-block;
+  color: var(--accent-2);
+  animation: blink 1.1s steps(2, start) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Real screenshot, once dropped in (see TODO in index.html). */
+.shot { display: block; width: 100%; height: auto; }
 
 /* --------------------------- section heads --------------------------- */
 .kicker {
@@ -404,4 +411,5 @@ code { font-family: var(--font-mono); font-size: 0.86em; }
   html { scroll-behavior: auto; }
   .js .reveal { opacity: 1; transform: none; transition: none; }
   .btn:hover, .card:hover { transform: none; }
+  .preview__term .cur { animation: none; }
 }

@@ -59,7 +59,7 @@
     <!-- ============================ HERO ============================ -->
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero__inner">
-        <p class="eyebrow reveal">Local-first · loopback-only · no account</p>
+        <p class="eyebrow reveal">Local-first · Agent-aware · loopback-only</p>
         <h1 id="hero-title" class="reveal">A GitHub-style home for the git repos that live only on your machine.</h1>
         <p class="hero__sub reveal">
           Point GitManager at your project folders and get one clean dashboard over every repo it finds —
@@ -67,7 +67,7 @@
           Nothing leaves your machine unless you ask it to.
         </p>
         <div class="cta-row reveal">
-          <a class="btn btn--primary" href="https://github.com/grabskimm/git-manager/releases/latest" rel="noopener">
+          <a class="btn btn--primary" href="#get-started">
             Download
           </a>
           <a class="btn btn--ghost" href="https://github.com/grabskimm/git-manager" rel="noopener">
@@ -79,21 +79,22 @@
       </div>
 
       <!--
-        TODO: Replace this placeholder with a real screenshot or GIF of the app.
-        Drop the file at site/assets/screenshot.png (or .gif) and swap the
-        .preview block below for: <img src="assets/screenshot.png" alt="..." />
-        No first-party screenshot ships in the repo today, so this is a stand-in.
+        TODO: A real app screenshot can replace this terminal demo.
+        Drop the image at site/assets/screenshot.png (or .gif) and swap this whole
+        <figure> for: <img class="shot" src="assets/screenshot.png" alt="The GitManager dashboard" width="..." height="..." />
       -->
-      <figure class="preview reveal" aria-label="GitManager interface preview (placeholder)">
+      <figure class="preview reveal" aria-label="Example gitm command-line session">
         <div class="preview__chrome" aria-hidden="true">
           <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-          <span class="preview__addr">127.0.0.1:4317</span>
+          <span class="preview__title">gitm — local-first git</span>
         </div>
-        <div class="preview__body">
-          <img class="preview__mark" src="assets/logo.svg" alt="" width="72" height="72" />
-          <p class="preview__label">App preview</p>
-          <p class="preview__todo">TODO: add a real screenshot / GIF</p>
-        </div>
+        <pre class="preview__term"><code><span class="p">$</span> gitm                <span class="c"># start the engine + open the UI</span>
+<span class="p">$</span> gitm scan           <span class="c"># re-scan your source folders</span>
+<span class="p">$</span> gitm repos          <span class="c"># list tracked repositories</span>
+<span class="p">$</span> gitm pr create      <span class="c"># open a local PR (auto-detected)</span>
+<span class="p">$</span> gitm pr merge 42    <span class="c"># merge: fast-forward or merge commit</span>
+<span class="p">$</span> gitm sync push      <span class="c"># back up now (local &#8594; remote)</span>
+<span class="p">$</span> <span class="cur" aria-hidden="true">&#9611;</span></code></pre>
       </figure>
     </section>
 
