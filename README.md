@@ -1,6 +1,10 @@
-# GitManager
+<p align="center">
+  <img src="packages/desktop/build/logo.png" alt="GitManager" width="128" height="128" />
+</p>
 
-**A GitHub-style home for the git repos that live only on your machine.**
+<h1 align="center">GitManager</h1>
+
+<p align="center"><strong>A GitHub-style home for the git repos that live only on your machine.</strong></p>
 
 GitManager is a local-first web app. Point it at the folders where you keep your projects, and
 it gives you one clean dashboard over every git repo it finds — browse code, open **pull
@@ -50,6 +54,15 @@ You need **Node ≥ 20** and **git**. For Claude reviews, install the
 [`claude`](https://docs.claude.com/en/docs/claude-code) CLI and log in once — everything else
 is bundled.
 
+The fastest way is the published CLI — **[install from npm](#install-from-npm)**:
+
+```bash
+npm install -g @git-manager/engine    # the `gitm` / `gitmanager` commands (UI bundled in)
+gitm                                 # serves on http://127.0.0.1:4317 and opens your browser
+```
+
+Or run from a source checkout of this repo:
+
 ```bash
 npm install
 npm run build     # builds the UI, bundles it into the engine
@@ -69,9 +82,77 @@ Then, in the UI:
 
 Headless (no browser)? `npm start -- --no-open`.
 
-### Put `gitm` on your PATH
+### Desktop app
 
-The UI is bundled into the engine, so a global install is self-contained:
+Prefer a native window over a browser tab? GitManager also ships as a standalone
+desktop app for **Windows, macOS, and Linux** that runs the same engine + UI
+headlessly and 100% locally — no terminal, no manual server start — with the app
+version in the sidebar and built-in auto-update.
+
+**Install script** (downloads the right installer from the latest release and
+**upgrades in place** if GitManager is already installed):
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/grabskimm/git-manager/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/grabskimm/git-manager/main/install.ps1 | iex
+```
+
+Or **download a prebuilt installer** by hand from the
+**[Releases page](https://github.com/grabskimm/git-manager/releases/latest)**:
+
+| OS | Download |
+| --- | --- |
+| **Windows** | `.exe` (installer) or `.msi` |
+| **macOS** (Apple Silicon) | `.dmg` |
+| **Linux** | `.AppImage` (portable) or `.deb` |
+
+Once installed, the app **auto-updates** itself — it checks the Releases feed on
+launch and prompts you in-app when a new version is out.
+
+To build the installers yourself instead (or run the app from this checkout):
+
+```bash
+npm run desktop        # build everything and launch the native app
+npm run desktop:dist   # build local installers (packages/desktop/release/)
+```
+
+See [`docs/desktop.md`](docs/desktop.md) for the framework decision, the release
+process (tag → build → publish → auto-update), and CI signing setup, and
+[`docs/desktop-credentials.md`](docs/desktop-credentials.md) for generating the
+signing certificates and credentials.
+
+### Install from npm
+
+The published CLI is **[`@git-manager/engine`](https://www.npmjs.com/package/@git-manager/engine)**
+— the engine with the UI already bundled in, so a single global install is fully
+self-contained (no build step, no separate UI package):
+
+```bash
+npm install -g @git-manager/engine    # installs the `gitm` and `gitmanager` commands
+gitm                                 # start the engine + open the UI
+gitm --version                       # check your installed version
+```
+
+That's the whole app: `gitm` with no arguments starts the local engine and opens
+the UI at `http://127.0.0.1:4317`; the subcommands below drive PRs/backups from the
+shell. You still need **git** (and, for AI reviews, the optional
+[`claude`](https://docs.claude.com/en/docs/claude-code) CLI) on your PATH.
+
+To upgrade later: `npm install -g @git-manager/engine@latest`. Prefer a native
+window with auto-update? Grab the [desktop app](#desktop-app) instead.
+
+> Releases are automated: every merge to `main` runs semantic-release, which
+> publishes the new version to npm **and** tags it for the installer build.
+
+### Install from source
+
+To run an unreleased checkout, the UI is bundled into the engine at build time, so a
+global install of the local workspace is also self-contained:
 
 ```bash
 npm install && npm run build
@@ -285,9 +366,14 @@ In dev, give the Vite server the token via `VITE_GM_TOKEN=$(cat ~/.gitmanager/to
 packages/
   engine/   Fastify daemon: git, db, identity, scan, merge, review, agents, storage, routes, ws
   ui/       React + Vite SPA: sidebar, repo view, PR view, agent panel, settings
+  desktop/  Electron shell: spawns the engine, owns the native window, auto-update (see docs/desktop.md)
 ```
 
 ## Non-goals (v1)
 
 Local-first (remotes are opt-in, GitHub-only). Simple branch-and-merge (no squash/rebase-on-merge).
 Observe-only agents (control seams exist but are stubbed). No conflict-resolution editor.
+
+## License
+
+[MIT](LICENSE) — provided "as is", without warranty or liability.

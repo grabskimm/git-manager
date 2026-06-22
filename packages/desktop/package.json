@@ -1,0 +1,35 @@
+{
+  "name": "@gitmanager/desktop",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "description": "GitManager desktop shell — runs the existing engine + UI headlessly in a native window, with auto-update.",
+  "main": "dist/main.js",
+  "author": "GitManager",
+  "homepage": "https://github.com/grabskimm/git-manager",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "icon": "node scripts/make-icon.mjs",
+    "start": "npm run build && electron .",
+    "pack": "node scripts/dist.mjs --dir",
+    "dist": "node scripts/dist.mjs",
+    "dist:publish": "node scripts/dist.mjs --publish always"
+  },
+  "dependencies": {
+    "@git-manager/engine": "file:../engine",
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^3.6.0",
+    "@types/node": "^22.5.4",
+    "electron": "33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.5.4"
+  },
+  "comment:overrides": "node-pty pulls an ancient node-gyp (v7) that can't detect VS2022 on Windows; force a modern one for the @electron/rebuild native rebuild.",
+  "overrides": {
+    "node-gyp": "^10.2.0"
+  }
+}

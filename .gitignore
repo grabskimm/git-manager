@@ -9,3 +9,6 @@ coverage/
 # local runtime state (never committed)
 .gitmanager/
 sandbox/
+# generated lockfile (the repo installs without a committed lockfile; see .npmrc)
+package-lock.json
+packages/desktop/release/

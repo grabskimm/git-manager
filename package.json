@@ -1,12 +1,14 @@
 {
   "name": "gitmanager",
   "version": "1.0.0",
+  "license": "MIT",
   "private": true,
   "description": "Local-first, GitHub-like UI over multiple local git repositories with local PRs and automatic AI review.",
   "type": "module",
   "workspaces": [
     "packages/engine",
-    "packages/ui"
+    "packages/ui",
+    "packages/desktop"
   ],
   "bin": {
     "gitmanager": "packages/engine/dist/cli.js",
@@ -16,13 +18,24 @@
     "build": "npm run build --workspace packages/ui && npm run build --workspace packages/engine",
     "build:engine": "npm run build --workspace packages/engine",
     "build:ui": "npm run build --workspace packages/ui",
+    "build:desktop": "npm run build --workspace packages/desktop",
     "dev": "npm run dev --workspace packages/engine",
     "dev:ui": "npm run dev --workspace packages/ui",
+    "desktop": "npm run build && npm run desktop:rebuild && npm run start --workspace packages/desktop",
+    "desktop:rebuild": "electron-rebuild -v 33.2.0 -o better-sqlite3",
+    "postdesktop": "npm rebuild better-sqlite3",
+    "desktop:dist": "npm run build && npm run dist --workspace packages/desktop",
     "start": "node packages/engine/dist/cli.js",
     "test": "npm run test --workspace packages/engine",
-    "typecheck": "npm run typecheck --workspace packages/engine && npm run typecheck --workspace packages/ui"
+    "typecheck": "npm run typecheck --workspace packages/engine && npm run typecheck --workspace packages/ui && npm run typecheck --workspace packages/desktop"
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "node-gyp": "^10.2.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^10.2.0"
   }
 }

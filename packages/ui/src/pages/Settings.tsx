@@ -2,14 +2,16 @@ import { useState } from "react";
 import { api } from "../api";
 import { useApp } from "../state";
 import { BackupSettings } from "../components/BackupSettings";
+import { AboutSettings } from "../components/AboutSettings";
 
-type Tab = "sources" | "features" | "backup" | "security";
+type Tab = "sources" | "features" | "backup" | "security" | "about";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "sources", label: "Sources" },
   { id: "features", label: "Features" },
   { id: "backup", label: "Backup & sync" },
   { id: "security", label: "Security" },
+  { id: "about", label: "About" },
 ];
 
 export function Settings() {
@@ -194,6 +196,8 @@ export function Settings() {
       )}
 
       {tab === "backup" && <BackupSettings />}
+
+      {tab === "about" && <AboutSettings />}
 
       {tab === "security" && (
         <>

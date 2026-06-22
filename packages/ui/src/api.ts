@@ -74,7 +74,7 @@ async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  ping: () => request<{ ok: boolean; version: string }>("/api/ping"),
+  ping: () => request<{ ok: boolean; version: string; build?: string | null }>("/api/ping"),
   me: () => request<{ name: string | null }>("/api/me"),
 
   // source dirs

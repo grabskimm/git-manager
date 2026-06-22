@@ -208,6 +208,54 @@ input:focus, textarea:focus, select:focus {
   font-size: 11px;
   border-top: 1px solid var(--border-muted);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rail-footer-version { flex-shrink: 0; }
+.app-version {
+  font-size: 11px;
+  color: var(--fg-muted);
+  cursor: default;
+}
+
+/* ---- about settings ---- */
+.about-list { display: flex; flex-direction: column; gap: 2px; }
+.about-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-muted);
+}
+.about-label { color: var(--fg-muted); font-weight: 600; }
+
+/* ---- desktop update prompt ---- */
+.update-banner {
+  margin: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.update-banner-text { line-height: 1.4; }
+.update-banner-actions { display: flex; gap: 6px; }
+.update-banner-actions .ghost {
+  background: none;
+  border: 1px solid var(--border);
+}
+.update-progress {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-muted);
+  overflow: hidden;
+}
+.update-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
 }
 .rail-header {
   padding: 14px 14px 12px;
@@ -216,8 +264,8 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   justify-content: space-between;
 }
-.brand { font-weight: 700; letter-spacing: 0.2px; font-size: 15px; }
-.brand .dot { color: var(--green); font-size: 0.7em; vertical-align: middle; margin: 0 1px; }
+.brand { font-weight: 700; letter-spacing: 0.2px; font-size: 15px; display: inline-flex; align-items: center; gap: 7px; }
+.brand-logo { border-radius: 5px; flex-shrink: 0; }
 /* Link-styled buttons (accessible: focusable, keyboard-operable) */
 .brand-btn {
   background: none;

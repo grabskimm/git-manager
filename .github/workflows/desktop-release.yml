@@ -1,0 +1,173 @@
+name: Desktop Release
+
+# Builds the GitManager desktop app (Electron) for Windows, macOS and Linux.
+#  - Tag push (v*)            -> release build: sign (if secrets present), build
+#                               all targets, publish a GitHub Release + the
+#                               electron-updater manifests (latest*.yml).
+#  - pull_request            -> validation build only: compile + package, no
+#                               signing, no publish — so breakage is caught early.
+
+on:
+  push:
+    tags:
+      - "v*" # release build (versioned + tagged by release.yml / semantic-release)
+  pull_request: # validation build only
+
+# Cancel superseded runs for the same ref.
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows
+            arch: x64
+          - os: macos-14 # Apple Silicon
+            name: macos-arm64
+            arch: arm64
+            ebflags: "--arm64"
+          - os: ubuntu-22.04 # pinned for broad glibc compatibility
+            name: linux
+            arch: x64
+
+    runs-on: ${{ matrix.os }}
+
+    # Hard cap so a stuck native build can never run for hours and burn minutes
+    # (macOS runners bill at 10x). A healthy build finishes well under this.
+    timeout-minutes: 40
+
+    env:
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      HAS_WIN_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # node-gyp (rebuilding node-pty for the Electron ABI) needs Python's
+      # distutils, removed from the stdlib in Python 3.12+. Pin 3.11 so the
+      # native rebuild works on every runner regardless of its default Python.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The repo intentionally ships no lockfile, so cache the npm store and the
+      # electron/electron-builder download caches keyed on the manifests. On
+      # Windows these caches live under the user profile (~/AppData/Local), not
+      # the workspace.
+      - name: Cache npm + electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/electron
+            ~/.cache/electron-builder
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: ${{ runner.os }}-npm-electron-${{ hashFiles('**/package.json') }}
+          restore-keys: ${{ runner.os }}-npm-electron-
+
+      # Linux: native deps for building AppImage/.deb and node-pty.
+      - name: Install Linux build deps
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm fakeroot dpkg
+
+      - name: Install dependencies
+        run: npm install
+
+      # Tag is the single source of truth for the installer + sidebar version.
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Releasing version $VERSION"
+          node -e "for (const p of ['package.json','packages/engine/package.json','packages/ui/package.json','packages/desktop/package.json']) { const fs=require('fs'); const j=JSON.parse(fs.readFileSync(p)); j.version='${VERSION}'; fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n'); }"
+
+      - name: Build engine + UI
+        run: npm run build
+
+      - name: Build desktop shell
+        run: npm run build:desktop
+        env:
+          GITMANAGER_BUILD_SHA: ${{ github.sha }}
+
+      # Stage a self-contained, de-hoisted node_modules for the desktop app so
+      # electron-builder packages it without re-installing prod deps (which, against
+      # the hoisted root node_modules, prunes app-builder-bin — electron-builder#7103).
+      # --install-links copies file:../engine in as a real package (npm ignores the
+      # per-workspace .npmrc, so it's passed as a flag); --omit=dev keeps it to
+      # runtime deps. The engine must already be built (above).
+      - name: Stage desktop production deps (self-contained)
+        working-directory: packages/desktop
+        run: npm install --omit=dev --install-links --no-save --workspaces=false
+
+      # Rebuild ONLY better-sqlite3 (a V8 addon) for the Electron ABI. node-pty is
+      # N-API (node-addon-api) and ABI-stable, so it keeps its install-time/prebuilt
+      # binary — recompiling it under @electron/rebuild deadlocks the build. This
+      # replaces electron-builder's own rebuild (npmRebuild: false in the config).
+      - name: Rebuild better-sqlite3 for Electron
+        working-directory: packages/desktop
+        run: npx --no-install electron-rebuild -v 33.2.0 -a ${{ matrix.arch }} -o better-sqlite3 -m .
+
+      # ---- Release build (tag): sign if secrets present, then publish --------
+      - name: Build & publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: packages/desktop
+        run: npx electron-builder ${{ matrix.ebflags }} --publish always
+        env:
+          GITMANAGER_BUILD_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS code signing + notarization (skipped if unset -> unsigned).
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows Authenticode (skipped if unset -> unsigned). For Azure
+          # Trusted Signing, set AZURE_* secrets and an afterSign hook instead.
+          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+      - name: Warn on unsigned macOS build
+        if: startsWith(github.ref, 'refs/tags/v') && startsWith(matrix.name, 'macos') && env.HAS_APPLE_CERT == 'false'
+        run: echo "::warning::APPLE_CERTIFICATE not set — producing an UNSIGNED, un-notarized macOS build."
+
+      - name: Warn on unsigned Windows build
+        if: startsWith(github.ref, 'refs/tags/v') && matrix.name == 'windows' && env.HAS_WIN_CERT == 'false'
+        run: echo "::warning::WINDOWS_CERTIFICATE not set — producing an UNSIGNED Windows build."
+
+      # ---- Validation build (PR / main): package only, never publish ---------
+      - name: Build (validation only)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        working-directory: packages/desktop
+        run: npx electron-builder ${{ matrix.ebflags }} --publish never
+        env:
+          GITMANAGER_BUILD_SHA: ${{ github.sha }}
+          # No signing on validation builds — keep them secret-free.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload validation artifacts
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitmanager-${{ matrix.name }}
+          path: |
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.msi
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.zip
+            packages/desktop/release/*.AppImage
+            packages/desktop/release/*.deb
+          if-no-files-found: ignore
+          retention-days: 7
