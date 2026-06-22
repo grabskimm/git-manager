@@ -88,12 +88,12 @@ version in the sidebar and built-in auto-update.
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/grabskimm/git-manager/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.sh | sh
 ```
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/grabskimm/git-manager/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/grabskimm/git-manager/main/scripts/install.ps1 | iex
 ```
 
 Or **download a prebuilt installer** by hand from the
