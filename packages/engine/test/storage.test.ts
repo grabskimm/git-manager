@@ -94,6 +94,29 @@ describe("storage sync (filesystem backend round-trip)", () => {
     expect(fs.readFileSync(path.join(pull.path!, "a.txt"), "utf8")).toBe("v12");
   });
 
+  it("bundles successfully when refs/remotes/origin/HEAD is a dangling symbolic ref", async () => {
+    // Regression: git bundle create --all fails with "bad object refs/remotes/origin/HEAD"
+    // when that symref points to a remote-tracking branch that no longer exists.
+    const repoDir = path.join(tmp, "dangling-ref-repo");
+    await makeRepo(repoDir, "file.txt", "content");
+    // Simulate a cloned repo where the remote's default branch was renamed —
+    // HEAD still points at the old name but the tracking ref doesn't exist.
+    await runGit(repoDir, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/nonexistent"]);
+
+    const repo: RepoLike = {
+      id: "gm-" + crypto.randomUUID(),
+      display_name: "dangling-ref-repo",
+      abs_path: repoDir,
+      default_branch: "main",
+    };
+    const backends: BackendConfig[] = [
+      { id: "fs", enabled: true, dir: path.join(tmp, "bucket-dangling"), prefix: "gitmanager" },
+    ];
+
+    const results = await pushRepo(backends, repo);
+    expect(results[0].status).toBe("ok");
+  });
+
   it("reports skip when no backend is configured", async () => {
     const repo: RepoLike = { id: "x", display_name: "x", abs_path: tmp, default_branch: null };
     const res = await pushRepo([], repo);

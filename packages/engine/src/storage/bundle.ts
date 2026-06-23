@@ -4,7 +4,12 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { runGit, git } from "../git.js";
 
-/** Create a `git bundle --all` of a repo and return its bytes. */
+/**
+ * Create a git bundle of a repo (local branches + tags only) and return its bytes.
+ * Remote-tracking refs are intentionally excluded: refs/remotes/origin/HEAD is a
+ * symbolic ref that can dangle when the remote's default branch was renamed,
+ * causing `git bundle create --all` to fail with "bad object".
+ */
 export async function createBundle(repoPath: string): Promise<Buffer> {
   const tmp = path.join(os.tmpdir(), `gm-bundle-${crypto.randomBytes(6).toString("hex")}.bundle`);
   try {
