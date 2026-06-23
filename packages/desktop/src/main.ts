@@ -220,7 +220,13 @@ async function startEngine(): Promise<void> {
   const entry = resolveEngineEntry();
   log.info(`starting engine: ${entry} on ${HOST}:${enginePort}`);
 
-  engine = spawn(process.execPath, [entry, "start"], {
+  // `gitm start` now daemonizes by default (it re-execs itself detached and the
+  // launcher exits 0). The desktop owns the engine's lifecycle directly — it
+  // needs a long-lived FOREGROUND child it can wait on and signal on quit — so
+  // pass `--foreground`. Without GITMANAGER_BACKGROUND=1 the engine also won't
+  // write the shared `gitm` pid file, keeping the desktop's instance independent
+  // of the CLI's background daemon.
+  engine = spawn(process.execPath, [entry, "start", "--foreground"], {
     env: {
       ...process.env,
       // A GUI launch inherits a minimal PATH; restore the user's login-shell PATH
@@ -413,9 +419,13 @@ function createMainWindow(): void {
   void mainWindow.loadURL(`http://${HOST}:${enginePort}/`);
 
   mainWindow.once("ready-to-show", () => {
-    splashWindow?.close();
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
     splashWindow = null;
-    mainWindow?.show();
+    // Guard against the window being torn down between registration and this
+    // event: `?.` doesn't help because the reference is non-null but destroyed,
+    // and calling `.show()` on it throws "Object has been destroyed" as an
+    // uncaught main-process exception.
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.show();
   });
 
   mainWindow.on("closed", () => {
