@@ -8,7 +8,7 @@ import { runGit, git } from "../git.js";
 export async function createBundle(repoPath: string): Promise<Buffer> {
   const tmp = path.join(os.tmpdir(), `gm-bundle-${crypto.randomBytes(6).toString("hex")}.bundle`);
   try {
-    const res = await runGit(repoPath, ["bundle", "create", tmp, "--all"]);
+    const res = await runGit(repoPath, ["bundle", "create", tmp, "--branches", "--tags"]);
     if (res.code !== 0) throw new Error(`git bundle failed: ${res.stderr.trim()}`);
     return fs.readFileSync(tmp);
   } finally {
