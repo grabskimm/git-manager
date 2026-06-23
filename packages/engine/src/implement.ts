@@ -1,13 +1,11 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import crypto from "node:crypto";
 import type { DB } from "./db.js";
 import type { Pr, PrThreadEntry, Repo } from "./types.js";
 import { runGit, git, revParse } from "./git.js";
 import { addThreadEntry, listThread } from "./store.js";
 import type { WsHub } from "./ws.js";
 import { isClaudeAvailable, runClaudeAgent } from "./claudeProcess.js";
+import { tmpPath } from "./paths.js";
 
 export type ImplementResult =
   | { status: "implemented"; commitSha: string; body: string }
@@ -94,7 +92,7 @@ export async function runImplement(
     .filter((l) => l !== "")
     .join("\n");
 
-  const worktree = path.join(os.tmpdir(), `gm-impl-${crypto.randomBytes(6).toString("hex")}`);
+  const worktree = tmpPath("gm-impl");
 
   try {
     const add = await runGit(repo.abs_path, ["worktree", "add", "--detach", worktree, headSha]);

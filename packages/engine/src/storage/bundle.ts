@@ -1,8 +1,7 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import crypto from "node:crypto";
 import { runGit, git } from "../git.js";
+import { tmpPath } from "../paths.js";
 
 /**
  * Create a git bundle of a repo (local branches + tags only) and return its bytes.
@@ -11,7 +10,7 @@ import { runGit, git } from "../git.js";
  * causing `git bundle create --all` to fail with "bad object".
  */
 export async function createBundle(repoPath: string): Promise<Buffer> {
-  const tmp = path.join(os.tmpdir(), `gm-bundle-${crypto.randomBytes(6).toString("hex")}.bundle`);
+  const tmp = tmpPath("gm-bundle", ".bundle");
   try {
     const res = await runGit(repoPath, ["bundle", "create", tmp, "--branches", "--tags"]);
     if (res.code !== 0) throw new Error(`git bundle failed: ${res.stderr.trim()}`);
@@ -26,7 +25,7 @@ export async function createBundle(repoPath: string): Promise<Buffer> {
 }
 
 function withTempBundle<T>(data: Buffer, fn: (file: string) => Promise<T>): Promise<T> {
-  const tmp = path.join(os.tmpdir(), `gm-restore-${crypto.randomBytes(6).toString("hex")}.bundle`);
+  const tmp = tmpPath("gm-restore", ".bundle");
   fs.writeFileSync(tmp, data);
   return fn(tmp).finally(() => {
     try {

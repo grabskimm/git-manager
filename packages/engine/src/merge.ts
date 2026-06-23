@@ -1,8 +1,6 @@
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-import crypto from "node:crypto";
 import { runGit, git, revParse, branchExists } from "./git.js";
+import { tmpPath } from "./paths.js";
 
 export type MergeOutcome =
   | { status: "merged"; mergeCommitSha: string; fastForward: boolean }
@@ -39,10 +37,7 @@ export async function attemptMerge(
   ]);
   const fastForward = ffCheck.code === 0;
 
-  const worktree = path.join(
-    os.tmpdir(),
-    `gm-merge-${crypto.randomBytes(6).toString("hex")}`,
-  );
+  const worktree = tmpPath("gm-merge");
 
   try {
     const add = await runGit(repoPath, [
@@ -124,10 +119,7 @@ export async function dryRunMerge(
   const headSha = await revParse(repoPath, headRef);
   if (!baseSha || !headSha) return "error";
 
-  const worktree = path.join(
-    os.tmpdir(),
-    `gm-dry-${crypto.randomBytes(6).toString("hex")}`,
-  );
+  const worktree = tmpPath("gm-dry");
   try {
     const add = await runGit(repoPath, [
       "worktree",
