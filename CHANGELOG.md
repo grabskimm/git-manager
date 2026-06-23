@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.4.3](https://github.com/grabskimm/git-manager/compare/v1.4.2...v1.4.3) (2026-06-23)
+
+
+### Bug Fixes
+
+* canonicalize temp paths so the implement agent works on Windows ([fbf9dfb](https://github.com/grabskimm/git-manager/commit/fbf9dfb17fd79f6c106fc5b570b77687438756b4))
+
 ## [1.4.2](https://github.com/grabskimm/git-manager/compare/v1.4.1...v1.4.2) (2026-06-23)
 
 
