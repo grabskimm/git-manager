@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.4.1](https://github.com/grabskimm/git-manager/compare/v1.4.0...v1.4.1) (2026-06-23)
+
+
+### Bug Fixes
+
+* **desktop:** run engine in foreground (fixes Windows crash + restart loop) ([96ee10b](https://github.com/grabskimm/git-manager/commit/96ee10b8bac9848c928b1117a351a8b9e766aace))
+
 # [1.4.0](https://github.com/grabskimm/git-manager/compare/v1.3.0...v1.4.0) (2026-06-22)
 
 
