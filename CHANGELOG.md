@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.4.2](https://github.com/grabskimm/git-manager/compare/v1.4.1...v1.4.2) (2026-06-23)
+
+
+### Bug Fixes
+
+* exclude remote-tracking refs from backup bundle ([#28](https://github.com/grabskimm/git-manager/issues/28)) ([ff88e5e](https://github.com/grabskimm/git-manager/commit/ff88e5e0ededef33c447570194c5da78852cf4a1))
+
 ## [1.4.1](https://github.com/grabskimm/git-manager/compare/v1.4.0...v1.4.1) (2026-06-23)
 
 
