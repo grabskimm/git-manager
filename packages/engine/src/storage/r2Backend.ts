@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import crypto from "node:crypto";
 import type { StorageBackend } from "./backend.js";
+import { tmpPath } from "../paths.js";
 
 interface CmdResult {
   code: number;
@@ -71,7 +71,7 @@ async function wranglerBase(): Promise<string[] | null> {
 }
 
 function tmpFile(): string {
-  return path.join(os.tmpdir(), `gm-r2-${crypto.randomBytes(6).toString("hex")}`);
+  return tmpPath("gm-r2");
 }
 
 /**
