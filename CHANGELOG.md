@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.4.4](https://github.com/grabskimm/git-manager/compare/v1.4.3...v1.4.4) (2026-06-24)
+
+
+### Bug Fixes
+
+* **installer:** verify download, stop running app, fall back to MSI on Windows ([7da15cb](https://github.com/grabskimm/git-manager/commit/7da15cbedd15b5f471f1406183475f3d0df12264))
+
 ## [1.4.3](https://github.com/grabskimm/git-manager/compare/v1.4.2...v1.4.3) (2026-06-23)
 
 
