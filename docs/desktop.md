@@ -74,6 +74,35 @@ via `electron-log`:
 
 Use **Help → Open logs folder** (the `openLogsFolder` bridge call) to reveal them.
 
+### `gitm` CLI on Windows (desktop install)
+
+The **NSIS `.exe` installer** places a `gitm.cmd` shim next to `GitManager.exe`
+in the install directory (`%LOCALAPPDATA%\Programs\GitManager\` by default) and
+adds that directory to the **current user's PATH**. No log-out/log-in required
+— new terminal windows opened after installation can run `gitm` immediately.
+
+> **MSI installer note:** the `.msi` (WiX) installer also ships `gitm.cmd` in
+> the same location but does **not** automatically register the PATH entry. If
+> you installed via the `.msi`, add the install directory to your PATH manually
+> in Settings → System → Advanced system settings → Environment Variables, or
+> run `irm … | iex` once to re-run the NSIS installer over the top.
+
+`gitm.cmd` delegates to the engine bundled inside the app:
+
+```bat
+set ELECTRON_RUN_AS_NODE=1
+GitManager.exe resources\app.asar.unpacked\node_modules\@git-manager\engine\dist\cli.js <args>
+```
+
+The engine uses Electron's bundled Node (via `ELECTRON_RUN_AS_NODE=1`), so no
+separate Node installation is needed.
+
+> **Port note:** the desktop spawns the engine on a **dynamic** loopback port,
+> not the fixed default `4317`. `gitm` subcommands that talk to a running engine
+> (`gitm pr list`, `gitm sync push`, etc.) target `4317` by default. Run
+> `gitm start` in a separate terminal to start a second engine on `4317`, or
+> set `GITMANAGER_PORT` to the port the desktop is using (visible in the logs).
+
 ### PATH resolution (finding `claude`, `az`, `wrangler`)
 
 The engine shells out to external CLIs — `claude` (chat + PR review), `npx`/`wrangler`

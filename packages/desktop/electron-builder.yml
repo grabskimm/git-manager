@@ -70,10 +70,18 @@ win:
       arch: [x64]
   # Authenticode: electron-builder picks up CSC_LINK/CSC_KEY_PASSWORD or an
   # Azure-signing afterSign hook from the environment; unsigned otherwise.
+  # Ship the gitm.cmd CLI shim in the install root alongside GitManager.exe.
+  # The NSIS custom macros (installer.nsh) add the install dir to the user PATH
+  # so `gitm` works from any new terminal after install.
+  extraFiles:
+    - from: build/gitm.cmd
+      to: gitm.cmd
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  # Inject PATH registration / removal into the NSIS installer and uninstaller.
+  include: build/installer.nsh
 
 # --- macOS ------------------------------------------------------------------
 mac:
