@@ -2,6 +2,18 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+# [1.5.0](https://github.com/grabskimm/git-manager/compare/v1.4.4...v1.5.0) (2026-06-29)
+
+
+### Bug Fixes
+
+* **desktop:** address Copilot review on gitm PATH shim ([8b17fdd](https://github.com/grabskimm/git-manager/commit/8b17fdd6848946a9964e6c44e6141ccf25c7b8e5))
+
+
+### Features
+
+* **desktop:** add gitm CLI to Windows PATH after install ([26ec402](https://github.com/grabskimm/git-manager/commit/26ec402549476d827217bbf386b11ef6ac341bbe))
+
 ## [1.4.4](https://github.com/grabskimm/git-manager/compare/v1.4.3...v1.4.4) (2026-06-24)
 
 
