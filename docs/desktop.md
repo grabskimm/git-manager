@@ -76,10 +76,16 @@ Use **Help → Open logs folder** (the `openLogsFolder` bridge call) to reveal t
 
 ### `gitm` CLI on Windows (desktop install)
 
-The NSIS installer places a `gitm.cmd` shim next to `GitManager.exe` in the
-install directory (`%LOCALAPPDATA%\Programs\GitManager\` by default) and adds
-that directory to the **current user's PATH**. No log-out/log-in required —
-new terminal windows opened after installation can run `gitm` immediately.
+The **NSIS `.exe` installer** places a `gitm.cmd` shim next to `GitManager.exe`
+in the install directory (`%LOCALAPPDATA%\Programs\GitManager\` by default) and
+adds that directory to the **current user's PATH**. No log-out/log-in required
+— new terminal windows opened after installation can run `gitm` immediately.
+
+> **MSI installer note:** the `.msi` (WiX) installer also ships `gitm.cmd` in
+> the same location but does **not** automatically register the PATH entry. If
+> you installed via the `.msi`, add the install directory to your PATH manually
+> in Settings → System → Advanced system settings → Environment Variables, or
+> run `irm … | iex` once to re-run the NSIS installer over the top.
 
 `gitm.cmd` delegates to the engine bundled inside the app:
 

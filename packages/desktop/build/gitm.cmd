@@ -5,4 +5,6 @@ rem The Electron binary (GitManager.exe) acts as Node when ELECTRON_RUN_AS_NODE=
 setlocal
 set ELECTRON_RUN_AS_NODE=1
 "%~dp0GitManager.exe" "%~dp0resources\app.asar.unpacked\node_modules\@git-manager\engine\dist\cli.js" %*
-endlocal
+rem Preserve the engine's exit code: %errorlevel% is expanded before endlocal
+rem restores the outer environment, so callers and CI see the real exit code.
+endlocal & exit /b %errorlevel%
