@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.5.1](https://github.com/grabskimm/git-manager/compare/v1.5.0...v1.5.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* **engine:** bundle static deps so engine is self-contained outside Electron asar ([#32](https://github.com/grabskimm/git-manager/issues/32)) ([888b416](https://github.com/grabskimm/git-manager/commit/888b4165ba922459e5d62fcbab474b17032dcb2e))
+
 # [1.5.0](https://github.com/grabskimm/git-manager/compare/v1.4.4...v1.5.0) (2026-06-29)
 
 
