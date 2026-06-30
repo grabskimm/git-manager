@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.5.4](https://github.com/grabskimm/git-manager/compare/v1.5.3...v1.5.4) (2026-06-30)
+
+
+### Bug Fixes
+
+* **desktop:** unpack bindings from asar so better-sqlite3 loads under ELECTRON_RUN_AS_NODE ([39d3477](https://github.com/grabskimm/git-manager/commit/39d347773392597a4cc177afcfb5c3cefd99f041))
+
 ## [1.5.3](https://github.com/grabskimm/git-manager/compare/v1.5.2...v1.5.3) (2026-06-30)
 
 
