@@ -21,7 +21,18 @@ export default defineConfig({
   // runtime string so esbuild can't bundle them — they degrade gracefully.
   noExternal: ["fastify", "@fastify/static", "ws", "chokidar"],
   external: ["better-sqlite3", "node-pty"],
+  // fastify and its deps (avvio) are CJS and use dynamic require() of Node.js
+  // builtins (e.g. require('events')). When bundled into ESM, esbuild's
+  // synthetic __require shim checks `typeof require !== "undefined"` — true
+  // only if a real `require` exists. shims:true adds __dirname but not require;
+  // we inject `require` via the banner so __require resolves builtins correctly.
+  // Alias avoids re-declaring 'createRequire' which esbuild also imports.
+  shims: true,
   banner: {
-    js: "#!/usr/bin/env node",
+    js: [
+      "#!/usr/bin/env node",
+      "import { createRequire as __cjsRequire } from 'module';",
+      "const require = __cjsRequire(import.meta.url);",
+    ].join("\n"),
   },
 });
