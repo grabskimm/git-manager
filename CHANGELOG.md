@@ -2,6 +2,15 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.5.3](https://github.com/grabskimm/git-manager/compare/v1.5.2...v1.5.3) (2026-06-30)
+
+
+### Bug Fixes
+
+* **engine:** inject require shim so CJS dynamic requires work in ESM bundle ([04f4a0b](https://github.com/grabskimm/git-manager/commit/04f4a0b9f8e40519a9c651661a1f975c0d6f5698))
+* **engine:** use array-join for banner to avoid template-literal whitespace ambiguity ([cd60faf](https://github.com/grabskimm/git-manager/commit/cd60faf8bbbf0f60f31cf4f03f4265bd527854e5))
+* **engine:** use noExternal to actually bundle fastify and pure-JS deps ([96b536f](https://github.com/grabskimm/git-manager/commit/96b536fa3568937194047ae47a5c86ef7dfeaf3d))
+
 ## [1.5.2](https://github.com/grabskimm/git-manager/compare/v1.5.1...v1.5.2) (2026-06-30)
 
 
