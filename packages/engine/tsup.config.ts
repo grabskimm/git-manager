@@ -15,7 +15,11 @@ export default defineConfig({
   // that boundary transparently, but the ESM `import` resolver is NOT patched —
   // so external ESM imports throw ERR_MODULE_NOT_FOUND when the
   // engine is invoked via `gitm` (ELECTRON_RUN_AS_NODE) or from a plain Node.
-  // Only keep native modules external; they cannot be bundled into JS.
+  // tsup keeps node_modules external by default; noExternal opts specific
+  // packages back in for bundling. Only keep native modules external; they
+  // cannot be bundled into JS. Cloud SDKs are loaded via loadDep() with a
+  // runtime string so esbuild can't bundle them — they degrade gracefully.
+  noExternal: ["fastify", "@fastify/static", "ws", "chokidar"],
   external: ["better-sqlite3", "node-pty"],
   banner: {
     js: "#!/usr/bin/env node",
