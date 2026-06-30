@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.5.2](https://github.com/grabskimm/git-manager/compare/v1.5.1...v1.5.2) (2026-06-30)
+
+
+### Bug Fixes
+
+* **engine:** use noExternal to actually bundle fastify and pure-JS deps ([#33](https://github.com/grabskimm/git-manager/issues/33)) ([f80e933](https://github.com/grabskimm/git-manager/commit/f80e933669d28ecf6c37f8aa935e367143d2639d))
+
 ## [1.5.1](https://github.com/grabskimm/git-manager/compare/v1.5.0...v1.5.1) (2026-06-29)
 
 
