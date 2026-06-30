@@ -29,8 +29,10 @@ export default defineConfig({
   // Alias avoids re-declaring 'createRequire' which esbuild also imports.
   shims: true,
   banner: {
-    js: `#!/usr/bin/env node
-import { createRequire as __cjsRequire } from 'module';
-const require = __cjsRequire(import.meta.url);`,
+    js: [
+      "#!/usr/bin/env node",
+      "import { createRequire as __cjsRequire } from 'module';",
+      "const require = __cjsRequire(import.meta.url);",
+    ].join("\n"),
   },
 });
