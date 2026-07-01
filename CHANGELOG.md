@@ -2,6 +2,13 @@
 
 All notable changes to GitManager are documented here, generated from Conventional Commits by semantic-release. Each version mirrors its GitHub Release notes.
 
+## [1.5.5](https://github.com/grabskimm/git-manager/compare/v1.5.4...v1.5.5) (2026-07-01)
+
+
+### Bug Fixes
+
+* **desktop:** unpack file-uri-to-path alongside bindings in asar ([9ad29b3](https://github.com/grabskimm/git-manager/commit/9ad29b30dedcca1e56b1ed190620ded203681529))
+
 ## [1.5.4](https://github.com/grabskimm/git-manager/compare/v1.5.3...v1.5.4) (2026-06-30)
 
 
