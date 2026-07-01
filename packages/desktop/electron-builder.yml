@@ -32,6 +32,7 @@ asarUnpack:
   - "**/@git-manager/engine/**"
   - "**/better-sqlite3/**"
   - "**/bindings/**"
+  - "**/file-uri-to-path/**"
   - "**/node-pty/**"
 
 # Ship the icon as a runtime resource so the Linux window/taskbar icon (and the
